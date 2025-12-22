@@ -84,6 +84,7 @@
 
   // === 現在地チェック ===
   function checkLocation() {
+    alert("ボタン押された！");
     navigator.geolocation.getCurrentPosition(pos => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
