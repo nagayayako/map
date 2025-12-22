@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>スタンプラリー</title>
+  <title>歴史探訪スタンプラリー</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Leaflet（地図ライブラリ） -->
@@ -33,19 +33,6 @@
 </div>
 
 <script>
-  // ===== 参加コード設定 =====
-  const JOIN_CODE = "KASAMA2025";
-
-  // ===== 合言葉チェック =====
-  const input = prompt("参加コードを入力してください");
-
-  if (input !== JOIN_CODE) {
-    document.body.innerHTML = `
-      <h2 style="padding:20px;">🚫 参加できません</h2>
-      <p style="padding:20px;">正しい参加コードが必要です。</p>
-    `;
-  } else {
-
   // === 史跡データ ===
   const spots = [
     {
@@ -84,7 +71,6 @@
 
   // === 現在地チェック ===
   function checkLocation() {
-    alert("ボタン押された！");
     navigator.geolocation.getCurrentPosition(pos => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
@@ -117,7 +103,7 @@
   }
 
   showStamps();
-  }
 </script>
+
 </body>
 </html>
