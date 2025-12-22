@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>歴史探訪スタンプラリー</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet（地図ライブラリ） -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    body { margin: 0; font-family: sans-serif; }
+    #map { height: 60vh; }
+    #panel { padding: 10px; }
+    button { font-size: 16px; padding: 8px 12px; }
+    .stamp { font-size: 20px; }
+  </style>
+</head>
+
+<body>
+
+<h2 style="padding:10px;">🏯 歴史探訪スタンプラリー</h2>
+<div id="map"></div>
+
+<div id="panel">
+  <button onclick="checkLocation()">📍 現在地をチェック</button>
+  <p id="message"></p>
+  <div id="stamps"></div>
+</div>
+
+<script>
+  // === 史跡データ ===
+  const spots = [
+    {
+      id: "castle",
+      name: "〇〇城跡",
+      lat: 36.1234,
+      lng: 140.1234,
+      radius: 80,
+      info: "ここは江戸時代に使われた城跡です。"
+    }
+  ];
+
+  // === 地図表示 ===
+  const map = L.map("map").setView([36.1234, 140.1234], 15);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "© OpenStreetMap"
+  }).addTo(map);
+
+  spots.forEach(s => {
+    L.marker([s.lat, s.lng]).addTo(map).bindPopup(s.name);
+  });
+
+  // === 距離計算 ===
+  function isNear(lat1, lng1, lat2, lng2, radius) {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) *
+      Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c < radius;
+  }
+
+  // === 現在地チェック ===
+  function checkLocation() {
+    navigator.geolocation.getCurrentPosition(pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+
+      L.circleMarker([lat, lng], { radius: 8 }).addTo(map);
+      map.setView([lat, lng], 16);
+
+      spots.forEach(s => {
+        if (isNear(lat, lng, s.lat, s.lng, s.radius)) {
+          localStorage.setItem("stamp_" + s.id, "true");
+          document.getElementById("message").textContent =
+            "🎉 スタンプGET！：" + s.name;
+        }
+      });
+
+      showStamps();
+    });
+  }
+
+  // === スタンプ表示 ===
+  function showStamps() {
+    const div = document.getElementById("stamps");
+    div.innerHTML = "<h3>📖 スタンプ帳</h3>";
+
+    spots.forEach(s => {
+      const got = localStorage.getItem("stamp_" + s.id);
+      div.innerHTML +=
+        `<div class="stamp">${s.name}：${got ? "✅" : "❌"}</div>`;
+    });
+  }
+
+  showStamps();
+</script>
+
+</body>
+</html>
