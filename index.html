@@ -33,7 +33,8 @@
   <button onclick="resetStamps()">🗑 スタンプ帳をリセット</button>
 </div>
 <script>
-
+let currentLocationMarker = null;
+  
 function resetStamps() {
   if (confirm("スタンプをすべて消しますか？")) {
     spots.forEach(s => {
@@ -46,10 +47,10 @@ function resetStamps() {
   const spots = [
     {
       id: "castle",
-      name: "〇〇城跡",
+      name: "K城跡",
       lat: 36.3760,
       lng: 140.2792,
-      radius: 80,
+      radius: 30,
       info: "ここは江戸時代に使われた城跡です。"
     }
  ,
@@ -58,7 +59,7 @@ function resetStamps() {
       name: "交差点",
       lat: 36.3770,
       lng: 140.2783,
-      radius: 80,
+      radius: 30,
       info: "ここは交差点です。"
     }
   ,
@@ -67,7 +68,7 @@ function resetStamps() {
       name: "バス停",
       lat: 36.3768,
       lng: 140.2779,
-      radius: 80,
+      radius: 30,
       info: "ここはバス停です。"
     }
   ];
@@ -113,7 +114,23 @@ function checkLocation() {
 
       alert("位置取得成功！"); // ← 確認用
 
-      L.circleMarker([lat, lng], { radius: 8 }).addTo(map);
+      //L.circleMarker([lat, lng], { radius: 8 }).addTo(map);
+      if (currentLocationMarker) {
+        map.removeLayer(currentLocationMarker);
+      }
+      
+      // 新しい現在地マーカーを作る
+      currentLocationMarker = L.circleMarker(
+        [lat, lng],
+        {
+          radius: 8,
+          color: "blue",
+          fillColor: "blue",
+          fillOpacity: 0.8
+        }
+      ).addTo(map);
+
+      
       map.setView([lat, lng], 16);
 
       spots.forEach(s => {
