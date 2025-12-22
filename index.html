@@ -23,7 +23,7 @@
 
 <body>
 
-<h2 style="padding:10px;">スタリー</h2>
+<h2 style="padding:10px;">スター</h2>
 <div id="map"></div>
 
 <div id="panel">
@@ -70,10 +70,20 @@
   }
 
   // === 現在地チェック ===
-  function checkLocation() {
-    navigator.geolocation.getCurrentPosition(pos => {
+function checkLocation() {
+  alert("📍 現在地チェック開始"); // ← デバッグ用（あとで消してOK）
+
+  if (!navigator.geolocation) {
+    alert("このブラウザは位置情報に対応していません");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
+
+      alert("位置取得成功！"); // ← 確認用
 
       L.circleMarker([lat, lng], { radius: 8 }).addTo(map);
       map.setView([lat, lng], 16);
@@ -87,9 +97,21 @@
       });
 
       showStamps();
-    });
-  }
-
+    },
+    err => {
+      // 👇 ここが超重要
+      alert(
+        "位置情報が取得できませんでした。\n" +
+        "理由: " + err.message
+      );
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    }
+  );
+}
   // === スタンプ表示 ===
   function showStamps() {
     const div = document.getElementById("stamps");
