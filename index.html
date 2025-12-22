@@ -12,17 +12,6 @@
   />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<script>
-  // 👇 ここに貼る
-  const JOIN_CODE = "K";
-  const input = prompt("参加コードを入力してください");
-  if (input !== JOIN_CODE) {
-    document.body.innerHTML = "参加できません";
-    throw new Error("stop");
-  }
-
-</script>
-  
   <style>
     body { margin: 0; font-family: sans-serif; }
     #map { height: 60vh; }
@@ -44,6 +33,19 @@
 </div>
 
 <script>
+  // ===== 参加コード設定 =====
+  const JOIN_CODE = "KASAMA2025";
+
+  // ===== 合言葉チェック =====
+  const input = prompt("参加コードを入力してください");
+
+  if (input !== JOIN_CODE) {
+    document.body.innerHTML = `
+      <h2 style="padding:20px;">🚫 参加できません</h2>
+      <p style="padding:20px;">正しい参加コードが必要です。</p>
+    `;
+  } else {
+
   // === 史跡データ ===
   const spots = [
     {
@@ -114,7 +116,7 @@
   }
 
   showStamps();
+  }
 </script>
-
 </body>
 </html>
