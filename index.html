@@ -30,8 +30,18 @@
   <button onclick="checkLocation()">📍 現在地をチェック</button>
   <p id="message"></p>
   <div id="stamps"></div>
+  <button onclick="resetStamps()">🗑 スタンプ帳をリセット</button>
 </div>
 <script>
+
+function resetStamps() {
+  if (confirm("スタンプをすべて消しますか？")) {
+    spots.forEach(s => {
+      localStorage.removeItem("stamp_" + s.id);
+    });
+    showStamps();
+  }
+}
   // === 史跡データ ===
   const spots = [
     {
@@ -144,6 +154,8 @@ function checkLocation() {
 
   showStamps();
 </script>
+
+
 
 </body>
 </html>
