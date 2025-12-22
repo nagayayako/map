@@ -12,6 +12,17 @@
   />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+<script>
+  // 👇 ここに貼る
+  const JOIN_CODE = "K";
+  const input = prompt("参加コードを入力してください");
+  if (input !== JOIN_CODE) {
+    document.body.innerHTML = "参加できません";
+    throw new Error("stop");
+  }
+
+</script>
+  
   <style>
     body { margin: 0; font-family: sans-serif; }
     #map { height: 60vh; }
