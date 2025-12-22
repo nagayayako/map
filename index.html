@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>歴史探訪スタンプラリー</title>
+  <title>スタンプラリー</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Leaflet（地図ライブラリ） -->
@@ -23,7 +23,7 @@
 
 <body>
 
-<h2 style="padding:10px;">🏯 歴史探訪スタンプラリー</h2>
+<h2 style="padding:10px;">スタンプラリー</h2>
 <div id="map"></div>
 
 <div id="panel">
@@ -43,9 +43,20 @@
       info: "ここは江戸時代に使われた城跡です。"
     }
   ];
+  const spots = [
+    {
+      id: "castle",
+      name: "〇〇城跡",
+      lat: 36.3760,
+      lng: 140.2792,
+      radius: 80,
+      info: "ここは江戸時代に使われた城跡です。"
+    }
+  ];
+
 
   // === 地図表示 ===
-  const map = L.map("map").setView([36.1234, 140.1234], 15);
+  const map = L.map("map").setView([36.3824, 140.2674], 15);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "© OpenStreetMap"
   }).addTo(map);
