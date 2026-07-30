@@ -16,8 +16,12 @@
     body { margin: 0; font-family: sans-serif; }
     #map { height: 60vh; }
     #panel { padding: 10px; }
-    button { font-size: 16px; padding: 8px 12px; }
-    .stamp { font-size: 20px; }
+    button { font-size: 16px; padding: 8px 12px; cursor: pointer; }
+    .stamp { font-size: 20px; margin-bottom: 10px; }
+    
+    /* ピンの色を変えるためのスタイル定義 */
+    .pin-red { filter: hue-rotate(0deg); }
+    .pin-green { filter: hue-rotate(140deg); }
   </style>
 </head>
 
@@ -28,132 +32,110 @@
 
 <div id="panel">
   <button onclick="checkLocation()">📍 現在地をチェック</button>
-  <p id="message"></p>
+  <p id="message" style="color: blue; font-weight: bold;"></p>
   <div id="stamps"></div>
-  <button onclick="resetStamps()">🗑 スタンプ帳をリセット</button>
+  <button onclick="resetStamps()" style="margin-top: 20px;">🗑 スタンプ帳をリセット</button>
 </div>
+
 <script>
 let currentLocationMarker = null;
-  
-function resetStamps() {
-  if (confirm("スタンプをすべて消しますか？")) {
-    spots.forEach(s => {
-      localStorage.removeItem("stamp_" + s.id);
-    });
-    showStamps();
+let currentLat = null; // 最後に取得した現在地の緯度
+let currentLng = null; // 最後に取得した現在地の経度
+const markers = {};    // 各スポットのマーカーを管理する箱
+
+// === 史跡データ ===
+const spots = [
+  {
+    id: "castle",
+    name: "鍵の手",
+    lat: 36.388916, 
+    lng: 140.256164,
+    radius: 30,
+    info: "ここは江戸時代に使われた城跡です。"
+  },
+  {
+    id: "traficright",
+    name: "交差点",
+    lat: 36.3770,
+    lng: 140.2783,
+    radius: 30,
+    info: "ここは交差点です。"
+  },
+  {
+    id: "mitotullys",
+    name: "タリーズ",
+    lat: 36.37115,
+    lng: 140.47631,
+    radius: 30,
+    info: "ここはタリーズです。"
+  },
+  {
+    id: "pkg",
+    name: "駐車場",
+    lat: 36.37,
+    lng: 140.47,
+    radius: 30,
+    info: "ここは駐車場です。"
   }
-}
-  // === 史跡データ ===
-  const spots = [
-    {
-      id: "castle",
-      name: "鍵の手",
-      lat: 36.388916, 
-      lng: 140.256164,
-      radius: 30,
-      info: "ここは江戸時代に使われた城跡です。"
-    }
- ,
-    {
-      id: "traficright",
-      name: "交差点",
-      lat: 36.3770,
-      lng: 140.2783,
-      radius: 30,
-      info: "ここは交差点です。"
-    }
-  ,
-    {
-      id: "mitotullys",
-      name: "タリーズ",
-      lat: 36.37115,
-      lng: 140.47631,
-      radius: 30,
-      info: "ここはタリーズです。"
-    }
-  ,
-    {
-      id: "pkg",
-      name: "駐車場",
-      lat: 36.37,
-      lng: 140.47,
-      radius: 30,
-      info: "ここは駐車場です。"
-    }
-  ];
+];
 
+// === 地図表示 ===
+const map = L.map("map").setView([36.3824, 140.2674], 15);
 
+const imageBounds = [
+  [36.367621, 140.248554], 
+  [36.398381, 140.276459]  
+];
+const imageUrl = "gmp.png"; 
 
+const illustration = L.imageOverlay(imageUrl, imageBounds, {
+  opacity: 0.6,     
+  alt: "オリジナルマップ"
+}).addTo(map);
 
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: "© OpenStreetMap",
+  opacity: 0.4 
+}).addTo(map);
 
-  // === 地図表示 ===
-  // 1. 地図の初期位置（イラストの中心付近に設定）
-  const map = L.map("map").setView([36.3824, 140.2674], 15);
-  
- // 2. [重要] イラスト画像の「左下（南西）」と「右上（北東）」の実世界の緯度経度を設定
-  // ※ スポット（鍵の手や交差点）がすべて収まる範囲に調整してください
-  const imageBounds = [
-    [36.367621, 140.248554], // 左下（南西）の緯度経度 [緯度, 経度]
-    [36.398381, 140.276459]  // 右上（北東）の緯度経度 [緯度, 経度]
-  ];
-  // 3. イラスト画像のパス（HTMLと同じフォルダに置く場合のファイル名）
-  const imageUrl = "gmp.png"; 
-
-  // 4. イラストを地図に重ねて表示
-  const illustration = L.imageOverlay(imageUrl, imageBounds, {
-    opacity: 0.6,     // 画像の不透明度（0.0〜1.0）
-    alt: "オリジナルマップ"
-  }).addTo(map);
-
-  // 5. 【位置調整用】背景にうっすら実際の地図を敷いておくと、位置合わせが超ラクになります
-  // 位置調整が終わったら、下の3行は丸ごと削除（またはコメントアウト）してOKです！
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "© OpenStreetMap",
-    opacity: 0.4 // うっすら透けさせる
-  }).addTo(map);
-
-  // 各スポットのピン立て（既存のコードのまま）
+// マーカーの見た目を更新・初期配置する関数
+function updateMapMarkers() {
   spots.forEach(s => {
-    L.marker([s.lat, s.lng]).addTo(map).bindPopup(s.name);
+    const got = localStorage.getItem("stamp_" + s.id);
+    // 獲得済なら緑（pin-green）、未獲得なら赤（pin-red）
+    const pinClass = got ? "pin-green" : "pin-red";
+
+    if (markers[s.id]) {
+      // 既にピンがある場合は、色（クラス名）だけ変更
+      L.DomUtil.removeClass(markers[s.id]._icon, "pin-red");
+      L.DomUtil.removeClass(markers[s.id]._icon, "pin-green");
+      L.DomUtil.addClass(markers[s.id]._icon, pinClass);
+    } else {
+      // 最初は新しくピンを作る
+      markers[s.id] = L.marker([s.lat, s.lng]).addTo(map).bindPopup(`<b>${s.name}</b><br>${s.info}`);
+      // 作成直後にクラスを付与
+      L.DomUtil.addClass(markers[s.id]._icon, pinClass);
+    }
   });
+}
 
+// === 距離計算 ===
+function isNear(lat1, lng1, lat2, lng2, radius) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c < radius;
+}
 
-  
-  // === 地図表示 ===
-  //const map = L.map("map").setView([36.3824, 140.2674], 15);
-  //L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  //  attribution: "© OpenStreetMap"
-  //}).addTo(map);
-
-  //spots.forEach(s => {
-  //  L.marker([s.lat, s.lng]).addTo(map).bindPopup(s.name);
-  //});
-
-
-
-
-
-
-
-
-  
-  // === 距離計算 ===
-  function isNear(lat1, lng1, lat2, lng2, radius) {
-    const R = 6371000;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(lat1 * Math.PI / 180) *
-      Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLng / 2) ** 2;
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c < radius;
-  }
-
-  // === 現在地チェック ===
+// === 📍 現在地をチェック（位置表示のみに変更） ===
 function checkLocation() {
-  alert("📍 現在地チェック開始"); // ← デバッグ用（あとで消してOK）
+  alert("📍 現在地チェック開始");
 
   if (!navigator.geolocation) {
     alert("このブラウザは位置情報に対応していません");
@@ -162,19 +144,18 @@ function checkLocation() {
 
   navigator.geolocation.getCurrentPosition(
     pos => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
+      // 取得した緯度経度を記憶する
+      currentLat = pos.coords.latitude;
+      currentLng = pos.coords.longitude;
 
-      alert("位置取得成功！"); // ← 確認用
+      alert("位置取得成功！"); 
 
-      //L.circleMarker([lat, lng], { radius: 8 }).addTo(map);
       if (currentLocationMarker) {
         map.removeLayer(currentLocationMarker);
       }
       
-      // 新しい現在地マーカーを作る
       currentLocationMarker = L.circleMarker(
-        [lat, lng],
+        [currentLat, currentLng],
         {
           radius: 8,
           color: "blue",
@@ -182,26 +163,14 @@ function checkLocation() {
           fillOpacity: 0.8
         }
       ).addTo(map);
-
       
-      map.setView([lat, lng], 16);
-
-      spots.forEach(s => {
-        if (isNear(lat, lng, s.lat, s.lng, s.radius)) {
-          localStorage.setItem("stamp_" + s.id, "true");
-          document.getElementById("message").textContent =
-            "🎉 スタンプGET！：" + s.name;
-        }
-      });
-
-      showStamps();
+      map.setView([currentLat, currentLng], 16);
+      
+      // 案内メッセージを変更（自動スタンプは無し）
+      document.getElementById("message").textContent = "📍 現在地を更新しました！下のスタンプ帳からボタンを押してね。";
     },
     err => {
-      // 👇 ここが超重要
-      alert(
-        "位置情報が取得できませんでした。\n" +
-        "理由: " + err.message
-      );
+      alert("位置情報が取得できませんでした。\n理由: " + err.message);
     },
     {
       enableHighAccuracy: true,
@@ -210,22 +179,66 @@ function checkLocation() {
     }
   );
 }
-  // === スタンプ表示 ===
-  function showStamps() {
-    const div = document.getElementById("stamps");
-    div.innerHTML = "<h3>📖 スタンプ帳</h3>";
 
-    spots.forEach(s => {
-      const got = localStorage.getItem("stamp_" + s.id);
-      div.innerHTML +=
-        `<div class="stamp">${s.name}：${got ? "✅" : "❌"}</div>`;
-    });
+// === 個別のスタンプ判定機能（追加） ===
+function tryGetStamp(id) {
+  // まだ現在地がチェックされていない場合
+  if (currentLat === null || currentLng === null) {
+    alert("まずは「📍 現在地をチェック」ボタンを押して、マップ上に現在地を表示させてください！");
+    return;
   }
 
-  showStamps();
+  // 対象のスポットデータを特定
+  const s = spots.find(spot => spot.id === id);
+  
+  // 現在地とスポットの距離を判定
+  if (isNear(currentLat, currentLng, s.lat, s.lng, s.radius)) {
+    localStorage.setItem("stamp_" + s.id, "true");
+    alert("🎉 スタンプGET！：" + s.name);
+    
+    updateMapMarkers(); // マーカーの色を緑に変える
+    showStamps();       // スタンプ帳のボタンを「獲得済」に変える
+  } else {
+    alert("❌ 残念！まだ「" + s.name + "」の近くにいません。もっと近づいてからもう一度押してね。");
+  }
+}
+
+// === スタンプ表示（個別ボタン付きに改造） ===
+function showStamps() {
+  const div = document.getElementById("stamps");
+  div.innerHTML = "<h3>📖 スタンプ帳</h3>";
+
+  spots.forEach(s => {
+    const got = localStorage.getItem("stamp_" + s.id);
+    
+    if (got) {
+      div.innerHTML += `<div class="stamp">${s.name}：✅ 獲得済</div>`;
+    } else {
+      // 未獲得の場合は、個別の判定ボタンを配置
+      div.innerHTML += `
+        <div class="stamp">
+          ${s.name}：❌ 
+          <button onclick="tryGetStamp('${s.id}')" style="font-size:14px; padding:4px 8px; margin-left:10px;">ここでスタンプを押す</button>
+        </div>`;
+    }
+  });
+}
+
+function resetStamps() {
+  if (confirm("スタンプをすべて消しますか？")) {
+    spots.forEach(s => {
+      localStorage.removeItem("stamp_" + s.id);
+    });
+    updateMapMarkers(); // ピンの色をすべて赤に戻す
+    showStamps();       // スタンプ帳をリセット
+    document.getElementById("message").textContent = "";
+  }
+}
+
+// 初期起動時の実行
+updateMapMarkers();
+showStamps();
 </script>
-
-
 
 </body>
 </html>
