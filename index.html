@@ -73,17 +73,61 @@ function resetStamps() {
     }
   ];
 
-  
+
+
+
+
   // === 地図表示 ===
+  // 1. 地図の初期位置（イラストの中心付近に設定）
   const map = L.map("map").setView([36.3824, 140.2674], 15);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "© OpenStreetMap"
+  
+ // 2. [重要] イラスト画像の「左下（南西）」と「右上（北東）」の実世界の緯度経度を設定
+  // ※ スポット（鍵の手や交差点）がすべて収まる範囲に調整してください
+  const imageBounds = [
+    [36.3700, 140.2500], // 左下（南西）の緯度経度 [緯度, 経度]
+    [36.3950, 140.2850]  // 右上（北東）の緯度経度 [緯度, 経度]
+  ];
+  // 3. イラスト画像のパス（HTMLと同じフォルダに置く場合のファイル名）
+  const imageUrl = "originalmap.png"; 
+
+  // 4. イラストを地図に重ねて表示
+  const illustration = L.imageOverlay(imageUrl, imageBounds, {
+    opacity: 0.9,     // 画像の不透明度（0.0〜1.0）
+    alt: "オリジナルマップ"
   }).addTo(map);
 
+  // 5. 【位置調整用】背景にうっすら実際の地図を敷いておくと、位置合わせが超ラクになります
+  // 位置調整が終わったら、下の3行は丸ごと削除（またはコメントアウト）してOKです！
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "© OpenStreetMap",
+    opacity: 0.4 // うっすら透けさせる
+  }).addTo(map);
+
+  // 各スポットのピン立て（既存のコードのまま）
   spots.forEach(s => {
     L.marker([s.lat, s.lng]).addTo(map).bindPopup(s.name);
   });
 
+
+  
+  // === 地図表示 ===
+  //const map = L.map("map").setView([36.3824, 140.2674], 15);
+  //L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  //  attribution: "© OpenStreetMap"
+  //}).addTo(map);
+
+  //spots.forEach(s => {
+  //  L.marker([s.lat, s.lng]).addTo(map).bindPopup(s.name);
+  //});
+
+
+
+
+
+
+
+
+  
   // === 距離計算 ===
   function isNear(lat1, lng1, lat2, lng2, radius) {
     const R = 6371000;
