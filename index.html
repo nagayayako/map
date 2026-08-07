@@ -138,21 +138,25 @@ const spots = [
 ];
 
 // === 地図表示 ===
-const map = L.map("map").setView([36.3824, 140.2674], 15);
+// ズームレベルを「15」から、確実に航空写真が表示される「16」（より拡大された状態）に変更します
+const map = L.map("map").setView([36.3824, 140.2674], 16);
 
 // 1. 通常地図（OpenStreetMap）レイヤー
 const baseMap = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution: "© OpenStreetMap"
-  // ※背景として独立させるため、opacity（透明度）の設定は削除して100%ではっきり表示させます
+  attribution: "© OpenStreetMap",
+  maxZoom: 19
 });
 
 // 2. 航空写真（国土地理院）レイヤー
-const satelliteMap = L.tileLayer("https://gsi.go.jp{z}/{x}/{y}.jpg", {
-  attribution: "© 国土地理院"
+// maxNativeZoomを指定することで、これ以上ズームアウト・ズームインしても画像が消えないように保護します
+const satelliteMap = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg", {
+  attribution: "© 国土地理院",
+  minZoom: 2,
+  maxZoom: 19,
+  maxNativeZoom: 18
 });
 
 // 3. オリジナルマップ（meijiline.png）を「背景グループ」として作成
-// ※Leafletの仕様上、画像を背景にする場合は「空のレイヤー」を作ってそこに画像を載せます
 const originalMapGroup = L.layerGroup();
 
 const imageBounds = [
@@ -162,7 +166,7 @@ const imageBounds = [
 const imageUrl = "meijiline.png"; 
 
 L.imageOverlay(imageUrl, imageBounds, {
-  opacity: 1.0,     // 背景として使うので、透けさせずに100%ではっきり表示
+  opacity: 1.0,     
   alt: "オリジナルマップ"
 }).addTo(originalMapGroup);
 
@@ -178,11 +182,7 @@ const baseLayers = {
   "航空写真": satelliteMap
 };
 
-// ラジオボタンでどれか1つだけが選ばれるようになります
 L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
-
-
-
 
   
 // マーカーの見た目を更新・初期配置する関数
