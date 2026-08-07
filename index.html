@@ -32,7 +32,6 @@
   font-family: sans-serif;
   font-size: 13px;
   color: #333;
-  transition: all 0.2s ease-in-out;
   overflow: hidden;
 }
 
@@ -46,7 +45,7 @@
   justify-content: center;
 }
 
-/* 最小化の時に表示するアイコン（文字） */
+/* 最小化の時に表示するアイコン */
 .custom-map-control.collapsed .control-icon {
   font-size: 16px;
   display: block;
@@ -79,6 +78,7 @@
   margin: 5px 0;
   cursor: pointer;
   white-space: nowrap;
+  padding: 2px 0; /* タッチしやすいように少し広げる */
 }
 .custom-map-control input {
   margin-right: 5px;
@@ -245,12 +245,11 @@ L.imageOverlay(imageUrl, imageBounds, { opacity: 1.0, alt: "オリジナルマ�
 originalMapGroup.addTo(map);
 
 
-// === 🆕 パネルをフワッと自動開閉させる共通関数 ===
+// === ⭕️ スマホの誤動作を完全に防ぐ、新しい開閉制御関数 ===
 function setupControlToggle(container) {
-  // 最初は「最小化（collapsed）」状態にする
   container.classList.add('custom-map-control', 'collapsed');
 
-  // スマホのタップまたはPCのマウス乗せで展開（開く）
+  // アイコンをタップ、またはマウスが乗ったら「開く」
   const expand = () => {
     container.classList.remove('collapsed');
     container.classList.add('expanded');
@@ -258,30 +257,35 @@ function setupControlToggle(container) {
   container.addEventListener('mouseenter', expand);
   container.addEventListener('touchstart', expand, { passive: true });
 
-  // マウスが離れたら折りたたむ（最小化）
+  // マウスが完全に離れたら折りたたむ
   container.addEventListener('mouseleave', () => {
     container.classList.remove('expanded');
     container.classList.add('collapsed');
   });
 
-  // スマホ用に、パネル以外の地図部分をタップしたら閉じる仕組み
-  map.on('click startistmove', () => {
+  // ラジオボタンをクリックした時は、誤作動を防ぐため「0.3秒待ってから」閉じる
+  container.addEventListener('change', () => {
+    setTimeout(() => {
+      container.classList.remove('expanded');
+      container.classList.add('collapsed');
+    }, 300);
+  });
+
+  // パネルの外（地図）をタップしたら折りたたむ
+  map.on('click movestart', () => {
     container.classList.remove('expanded');
     container.classList.add('collapsed');
   });
 
-  // パネル内を触ったときに後ろの地図が勝手に動くのを防ぐ
   L.DomEvent.disableClickPropagation(container);
 }
 
 
-// === 🆕 1つ目のパネル：自作「地図切り替えコントロール」 ===
+// === 1つ目のパネル：自作「地図切り替えコントロール」 ===
 const CustomLayersControl = L.Control.extend({
   options: { position: 'topright' },
   onAdd: function () {
     const container = L.DomUtil.create('div');
-    
-    // アイコンは「🗺」、中身は地図の3択ラジオボタン
     container.innerHTML = `
       <div class="control-icon">🗺</div>
       <div class="control-content">
@@ -297,7 +301,6 @@ const CustomLayersControl = L.Control.extend({
 });
 map.addControl(new CustomLayersControl());
 
-// 地図切り替えの実際の処理
 function handleLayerRadio(type) {
   map.removeLayer(originalMapGroup);
   map.removeLayer(baseMap);
@@ -309,14 +312,11 @@ function handleLayerRadio(type) {
 }
 
 
-// === 🆕 2つ目のパネル：自作「足跡の記録コントロール」 ===
+// === 2つ目のパネル：自作「足跡の記録コントロール」 ===
 const CustomTrackControl = L.Control.extend({
   options: { position: 'topright' },
   onAdd: function () {
     const container = L.DomUtil.create('div');
-    
-    // 上から 記録開始 ＞ 一時停止 ＞ 停止・リセット の順に変更
-    // アイコン部分に状態識別用のidを付与
     container.innerHTML = `
       <div class="control-icon" id="track-icon-status">👣</div>
       <div class="control-content">
@@ -332,31 +332,30 @@ const CustomTrackControl = L.Control.extend({
 });
 map.addControl(new CustomTrackControl());
 
-// === ラジオボタンの選択によって機能を切り替える関数 ===
+
+// === ラジオボタンの選択によって機能を切り替える関数（バグ修正版） ===
 function handleTrackRadio(mode) {
   const iconStatus = document.getElementById('track-icon-status');
 
   if (mode === 'start') {
     startTracking();
-    if (iconStatus) iconStatus.innerText = "🟢"; // アイコンを緑丸に変える
+    // GPS開始に成功すれば、ここでアイコンが確実に「🟢」になります
   } else if (mode === 'pause') {
     pauseTracking();
-    if (iconStatus) iconStatus.innerText = "🟡"; // アイコンを黄丸に変える
+    if (iconStatus) iconStatus.innerText = "🟡"; 
   } else if (mode === 'stop') {
-    // 停止（リセット）が選ばれたとき
     if (trackDots.length > 0) {
       if (confirm("これまでに記録した歩いた足跡（てんてん）をすべて消去しますか？")) {
-        // 承諾されたら消去して「停止」状態へ
         trackDots.forEach(dot => map.removeLayer(dot));
         trackDots = [];
         if (watchId !== null) {
           navigator.geolocation.clearWatch(watchId);
           watchId = null;
         }
-        if (iconStatus) iconStatus.innerText = "👣"; // 通常の足跡アイコンに戻す
+        if (iconStatus) iconStatus.innerText = "👣"; 
         alert("⚪ 軌跡をリセットしました。");
       } else {
-        // キャンセルされたら、直前の状態（開始か一時中止）のボタンにチェックを戻す
+        // キャンセルされたら元の状態のボタンにチェックを戻す
         if (watchId !== null) {
           document.getElementById('opt_start').checked = true;
           if (iconStatus) iconStatus.innerText = "🟢";
@@ -366,14 +365,80 @@ function handleTrackRadio(mode) {
         }
       }
     } else {
-      // 最初からデータがない場合は、そのままGPS監視を止めるだけ
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
       }
-      if (iconStatus) iconStatus.innerText = "👣"; // 通常の足跡アイコンに戻す
+      if (iconStatus) iconStatus.innerText = "👣"; 
     }
   }
+}
+
+// === 🟢 記録開始（GPSエラー時の復旧処理を追加） ===
+function startTracking() {
+  const iconStatus = document.getElementById('track-icon-status');
+
+  if (!navigator.geolocation) {
+    alert("お使いのブラウザは位置情報の追跡に対応していません");
+    document.getElementById('opt_stop').checked = true; 
+    if (iconStatus) iconStatus.innerText = "👣";
+    return;
+  }
+  if (watchId !== null) return;
+
+  // 記録開始が押されたら、まずは🟢にする
+  if (iconStatus) iconStatus.innerText = "🟢";
+
+  watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const uLat = pos.coords.latitude;
+      const uLng = pos.coords.longitude;
+      currentLat = uLat;
+      currentLng = uLng;
+
+      if (currentLocationMarker) {
+        currentLocationMarker.setLatLng([uLat, uLng]);
+      } else {
+        currentLocationMarker = L.circleMarker([uLat, uLng], {
+          radius: 8, color: "blue", fillColor: "blue", fillOpacity: 0.8
+        }).addTo(map);
+      }
+
+      let isDuplicate = false;
+      if (trackDots.length > 0) {
+        const lastDotLatLng = trackDots[trackDots.length - 1].getLatLng();
+        if (lastDotLatLng.lat === uLat && lastDotLatLng.lng === uLng) {
+          isDuplicate = true;
+        }
+      }
+
+      if (!isDuplicate) {
+        const dot = L.circleMarker([uLat, uLng], {
+          radius: 4, color: "red", fillColor: "red", fillOpacity: 0.6, stroke: false
+        }).addTo(map);
+        trackDots.push(dot);
+      }
+    },
+    (err) => {
+      console.error("位置の追跡に失敗しました:", err.message);
+      // 位置情報がどうしても掴めないエラー時は、安全のために停止状態に戻す
+      alert("⚠️ GPS信号が弱いため記録を開始できません。場所を移動して再度お試しください。");
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      document.getElementById('opt_stop').checked = true;
+      if (iconStatus) iconStatus.innerText = "👣";
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
+
+// === 🟡 一時停止 ===
+function pauseTracking() {
+  if (watchId === null) return;
+  navigator.geolocation.clearWatch(watchId);
+  watchId = null;
 }
 
   
