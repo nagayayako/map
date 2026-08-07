@@ -24,35 +24,77 @@
     .pin-green { filter: hue-rotate(140deg); }
     .pin-yellow { filter: hue-rotate(-50deg); } /* 👈 黄色用の色フィルターを追加 */
 
-    /* 地図内の軌跡コントロールパネルの見た目 */
-    .track-control-panel {
-      background: white;
-      padding: 6px 8px;
-      border-radius: 4px;
-      box-shadow: 0 1px 5px rgba(0,0,0,0.4);
-      font-family: sans-serif;
-      font-size: 13px;
-    }
-    .track-control-panel h4 {
-      margin: 0 0 5px 0;
-      font-size: 12px;
-      color: #666;
-      border-bottom: 1px solid #eee;
-      padding-bottom: 3px;
-    }
-    /* ラジオボタンと文字の間隔調整 */
-    .track-control-panel label {
-      display: block;
-      margin: 4px 0;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .track-control-panel input {
-      margin-right: 4px;
-      vertical-align: middle;
-    }
+/* 両方の四角パネルに共通するデザイン */
+.custom-map-control {
+  background: #ffffff;
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+  font-family: sans-serif;
+  font-size: 13px;
+  color: #333;
+  transition: all 0.2s ease-in-out;
+  overflow: hidden;
+}
 
+/* 最小化（閉じている時）の見た目（34px四方の正方形） */
+.custom-map-control.collapsed {
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
+/* 最小化の時に表示するアイコン（文字） */
+.custom-map-control.collapsed .control-icon {
+  font-size: 16px;
+  display: block;
+}
+/* 展開している時はアイコンを隠す */
+.custom-map-control.expanded .control-icon {
+  display: none;
+}
+
+/* 展開している（開いている時）の見た目 */
+.custom-map-control.expanded {
+  width: auto;
+  height: auto;
+  padding: 8px 10px;
+}
+
+/* パネルの中のタイトル */
+.custom-map-control h4 {
+  margin: 0 0 6px 0;
+  font-size: 12px;
+  color: #666;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 3px;
+  white-space: nowrap;
+}
+
+/* 選択肢のラベル */
+.custom-map-control label {
+  display: block;
+  margin: 5px 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.custom-map-control input {
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+/* 展開時のコンテンツ（閉じている時は非表示） */
+.custom-map-control .control-content {
+  display: none;
+}
+.custom-map-control.expanded .control-content {
+  display: block;
+}
+
+    
+    
 
     
   </style>
@@ -179,171 +221,115 @@ const spots = [
     info: "徳蔵寺に攻められた時に、正福寺がおっことして攻撃した石。大黒様の石と袋の石があって、今残っているのは袋の石。"
   }
 
-
-
-
 ];
+
+
+
+
+
+  
 
 // === 地図表示 ===
-// ズームレベルを「15」から、確実に航空写真が表示される「16」（より拡大された状態）に変更します
 const map = L.map("map").setView([36.3824, 140.2674], 16);
 
-// 1. 通常地図（OpenStreetMap）レイヤー
-const baseMap = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution: "© OpenStreetMap",
-  maxZoom: 19
-});
-
-// 2. 航空写真（国土地理院）レイヤー
-// maxNativeZoomを指定することで、これ以上ズームアウト・ズームインしても画像が消えないように保護します
-const satelliteMap = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg", {
-  attribution: "© 国土地理院",
-  minZoom: 2,
-  maxZoom: 19,
-  maxNativeZoom: 18
-});
-
-// 3. オリジナルマップ（meijiline.png）を「背景グループ」として作成
+// 背景レイヤーを定義
+const baseMap = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap", maxZoom: 19 });
+const satelliteMap = L.tileLayer("https://gsi.go.jp{z}/{x}/{y}.jpg", { attribution: "© 国土地理院", minZoom: 2, maxZoom: 19, maxNativeZoom: 18 });
 const originalMapGroup = L.layerGroup();
 
-const imageBounds = [
-  [36.376273, 140.246029], //左下
-  [36.396837, 140.278823]  //右上
-];
+const imageBounds = [[36.376273, 140.246029], [36.396837, 140.278823]];
 const imageUrl = "meijiline.png"; 
+L.imageOverlay(imageUrl, imageBounds, { opacity: 1.0, alt: "オリジナルマップ" }).addTo(originalMapGroup);
 
-L.imageOverlay(imageUrl, imageBounds, {
-  opacity: 1.0,     
-  alt: "オリジナルマップ"
-}).addTo(originalMapGroup);
-
-
-// === 4. 最初は「オリジナルマップ」を画面に表示しておく ===
+// 初期表示はオリジナル地図
 originalMapGroup.addTo(map);
 
 
-// === 5. 右上の切り替えボタンに3つの選択肢を登録 ===
-const baseLayers = {
-  "オリジナル地図": originalMapGroup,
-  "元の地図": baseMap,
-  "航空写真": satelliteMap
-};
+// === 🆕 パネルをフワッと自動開閉させる共通関数 ===
+function setupControlToggle(container) {
+  // 最初は「最小化（collapsed）」状態にする
+  container.classList.add('custom-map-control', 'collapsed');
 
-L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
+  // スマホのタップまたはPCのマウス乗せで展開（開く）
+  const expand = () => {
+    container.classList.remove('collapsed');
+    container.classList.add('expanded');
+  };
+  container.addEventListener('mouseenter', expand);
+  container.addEventListener('touchstart', expand, { passive: true });
+
+  // マウスが離れたら折りたたむ（最小化）
+  container.addEventListener('mouseleave', () => {
+    container.classList.remove('expanded');
+    container.classList.add('collapsed');
+  });
+
+  // スマホ用に、パネル以外の地図部分をタップしたら閉じる仕組み
+  map.on('click startistmove', () => {
+    container.classList.remove('expanded');
+    container.classList.add('collapsed');
+  });
+
+  // パネル内を触ったときに後ろの地図が勝手に動くのを防ぐ
+  L.DomEvent.disableClickPropagation(container);
+}
 
 
-// === 🆕 地図上にオリジナルの「軌跡コントロール」を作成して配置 ===
-const TrackControl = L.Control.extend({
-  options: { position: 'topright' }, // レヤーボタンの下（右上）に配置
-  onAdd: function (map) {
-    const container = L.DomUtil.create('div', 'track-control-panel');
+// === 🆕 1つ目のパネル：自作「地図切り替えコントロール」 ===
+const CustomLayersControl = L.Control.extend({
+  options: { position: 'topright' },
+  onAdd: function () {
+    const container = L.DomUtil.create('div');
     
-    // パネルの中身（HTML）を生成。レイヤー選択と同じくラジオボタン形式にします
+    // アイコンは「🗺」、中身は地図の3択ラジオボタン
     container.innerHTML = `
-      <h4>足跡の記録</h4>
-      <label><input type="radio" name="track_opt" id="opt_stop" checked onclick="handleTrackRadio('stop')">⚪ 停止・解除</label>
-      <label><input type="radio" name="track_opt" id="opt_start" onclick="handleTrackRadio('start')">🟢 記録開始</label>
-      <label><input type="radio" name="track_opt" id="opt_pause" onclick="handleTrackRadio('pause')">🟡 一時中止</label>
+      <div class="control-icon">🗺</div>
+      <div class="control-content">
+        <h4>地図の切り替え</h4>
+        <label><input type="radio" name="layer_opt" checked onclick="handleLayerRadio('original')">オリジナル地図</label>
+        <label><input type="radio" name="layer_opt" onclick="handleLayerRadio('base')">元の地図</label>
+        <label><input type="radio" name="layer_opt" onclick="handleLayerRadio('satellite')">航空写真</label>
+      </div>
     `;
-
-    // パネルをタッチしたときに、後ろの地図が勝手に動いたり拡大縮小したりするのを防ぐおまじない
-    L.DomEvent.disableClickPropagation(container);
+    setupControlToggle(container);
     return container;
   }
 });
-map.addControl(new TrackControl());
+map.addControl(new CustomLayersControl());
+
+// 地図切り替えの実際の処理
+function handleLayerRadio(type) {
+  map.removeLayer(originalMapGroup);
+  map.removeLayer(baseMap);
+  map.removeLayer(satelliteMap);
+
+  if (type === 'original') originalMapGroup.addTo(map);
+  if (type === 'base') baseMap.addTo(map);
+  if (type === 'satellite') satelliteMap.addTo(map);
+}
 
 
-// === 🆕 ラジオボタンの選択によって機能を切り替える関数 ===
-function handleTrackRadio(mode) {
-  if (mode === 'start') {
-    startTracking();
-  } else if (mode === 'pause') {
-    pauseTracking();
-  } else if (mode === 'stop') {
-    // 停止（リセット）が選ばれたとき
-    if (trackDots.length > 0) {
-      if (confirm("これまでに記録した歩いた足跡（てんてん）をすべて消去しますか？")) {
-        // 承諾されたら消去して「停止」状態維持
-        trackDots.forEach(dot => map.removeLayer(dot));
-        trackDots = [];
-        if (watchId !== null) {
-          navigator.geolocation.clearWatch(watchId);
-          watchId = null;
-        }
-        alert("⚪ 軌跡をリセットしました。");
-      } else {
-        // キャンセルされたら、直前の状態（開始か一時中止）のボタンにチェックを戻す
-        if (watchId !== null) {
-          document.getElementById('opt_start').checked = true;
-        } else {
-          document.getElementById('opt_pause').checked = true;
-        }
-      }
-    } else {
-      // 最初からデータがない場合は、そのままGPS監視を止めるだけ
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
-        watchId = null;
-      }
-    }
+// === 🆕 2つ目のパネル：自作「足跡の記録コントロール」 ===
+const CustomTrackControl = L.Control.extend({
+  options: { position: 'topright' },
+  onAdd: function () {
+    const container = L.DomUtil.create('div');
+    
+    // アイコンは「👣」、中身は軌跡の3択ラジオボタン
+    container.innerHTML = `
+      <div class="control-icon">👣</div>
+      <div class="control-content">
+        <h4>足跡の記録</h4>
+        <label><input type="radio" name="track_opt" id="opt_stop" checked onclick="handleTrackRadio('stop')">⚪ 停止・解除</label>
+        <label><input type="radio" name="track_opt" id="opt_start" onclick="handleTrackRadio('start')">🟢 記録開始</label>
+        <label><input type="radio" name="track_opt" id="opt_pause" onclick="handleTrackRadio('pause')">🟡 一時中止</label>
+      </div>
+    `;
+    setupControlToggle(container);
+    return container;
   }
-}
-
-// === 🟢 記録開始（内部ロジックをラジオボタン用に微調整） ===
-function startTracking() {
-  if (!navigator.geolocation) {
-    alert("お使いのブラウザは位置情報の追跡に対応していません");
-    document.getElementById('opt_stop').checked = true; // ラジオボタンを戻す
-    return;
-  }
-  if (watchId !== null) return;
-
-  watchId = navigator.geolocation.watchPosition(
-    (pos) => {
-      const uLat = pos.coords.latitude;
-      const uLng = pos.coords.longitude;
-      currentLat = uLat;
-      currentLng = uLng;
-
-      if (currentLocationMarker) {
-        currentLocationMarker.setLatLng([uLat, uLng]);
-      } else {
-        currentLocationMarker = L.circleMarker([uLat, uLng], {
-          radius: 8, color: "blue", fillColor: "blue", fillOpacity: 0.8
-        }).addTo(map);
-      }
-
-      let isDuplicate = false;
-      if (trackDots.length > 0) {
-        const lastDotLatLng = trackDots[trackDots.length - 1].getLatLng();
-        if (lastDotLatLng.lat === uLat && lastDotLatLng.lng === uLng) {
-          isDuplicate = true;
-        }
-      }
-
-      if (!isDuplicate) {
-        const dot = L.circleMarker([uLat, uLng], {
-          radius: 4, color: "red", fillColor: "red", fillOpacity: 0.6, stroke: false
-        }).addTo(map);
-        trackDots.push(dot);
-      }
-    },
-    (err) => {
-      console.error("位置の追跡に失敗しました:", err.message);
-    },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-  );
-}
-
-// === 🟡 一時中止 ===
-function pauseTracking() {
-  if (watchId === null) return;
-  navigator.geolocation.clearWatch(watchId);
-  watchId = null;
-}
-
-
+});
+map.addControl(new CustomTrackControl());
 
 
 
