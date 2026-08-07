@@ -526,20 +526,20 @@ function updateMapMarkers() {
     } else {
 
     
-        const smallIcon = L.icon({
-          iconUrl: 'https://unpkg.com', // デフォルトのピン画像
-          shadowUrl: 'https://unpkg.com', // デフォルトの影画像
-          iconSize:,       // ピンの大きさ（標準の [25, 41] から約40%小さくしました！）
-          shadowSize:,     // 影の大きさ
-          iconAnchor:,      // ピンの根元が正確に緯度経度を指すように調整（幅の半分, 高さ）
-          shadowAnchor:,    // 影の位置調整
-          popupAnchor: [0, -24]     // 吹き出しが出る位置を少し上に調整
-        });
-      
-        const marker = L.marker([s.lat, s.lng], { icon: smallIcon }).addTo(map).bindPopup(popupContent);
-        L.DomUtil.addClass(marker._icon, pinClass);
-        markers[s.id] = marker;    
+      // ピンのサイズを標準より約40%小さく設定します（今度は数字が入っています！）
+      const smallIcon = L.icon({
+        iconUrl: 'https://unpkg.com', 
+        shadowUrl: 'https://unpkg.com', 
+        iconSize: [16, 26],       // ピンの大きさ（横16px, 縦26px）
+        shadowSize: [26, 26],     // 影の大きさ
+        iconAnchor: [8, 26],      // ピンの根元が正確にスポットを指す位置調整（中心, 下端）
+        shadowAnchor: [8, 26],    // 影の位置調整
+        popupAnchor: [0, -24]     // 吹き出しが出る位置
+      });
     
+      const marker = L.marker([s.lat, s.lng], { icon: smallIcon }).addTo(map).bindPopup(popupContent);
+      L.DomUtil.addClass(marker._icon, pinClass);
+      markers[s.id] = marker;    
     
     }
   });
