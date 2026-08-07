@@ -342,19 +342,119 @@ const CustomTrackControl = L.Control.extend({
   }
 });
 map.addControl(new CustomTrackControl());
+/////////
+// === 🆕 ⑥ 【新システム】名前がぶつからない足跡記録変数 ===
+let myNewWatchId = null;       // 重複を避けるため名前を変えました
+let myNewTrackDots = [];       // 重複を避けるため名前を変えました
+let myNewLastDotTime = 0;      // 重複を避けるため名前を変えました
 
-// 🆕 ⑤ ボタンが押されたときに「とりあえずメッセージを出す」だけの仮の関数
 function handleTrackRadio(mode) {
+  const iconStatus = document.getElementById('track-icon-status');
   const messageEl = document.getElementById('message');
-  
+
   if (mode === 'start') {
-    if (messageEl) messageEl.textContent = "🟢 【テスト】スタートが押されました（まだGPSは動きません）";
-  } else if (mode === 'pause') {
-    if (messageEl) messageEl.textContent = "🟡 【テスト】ひとやすみが押されました";
-  } else if (mode === 'stop') {
-    if (messageEl) messageEl.textContent = "⚪ 【テスト】リセットが押されました";
+    startNewTracking(); // 🟢 新しい追跡関数を呼び出す
+    if (iconStatus) iconStatus.innerText = "🟢"; 
+    if (messageEl) messageEl.textContent = "🟢 足跡の記録を開始しました！30秒ごとに点を打ちます。";
+  } 
+  
+  else if (mode === 'pause') {
+    pauseNewTracking(); // 🟡 新しい一時停止関数を呼び出す
+    if (iconStatus) iconStatus.innerText = "🟡"; 
+    if (messageEl) messageEl.textContent = "🟡 足跡の記録をひとやすみしています。";
+  } 
+  
+  else if (mode === 'stop') {
+    // ⚪ リセット
+    if (myNewTrackDots.length > 0) {
+      if (confirm("これまでに記録した歩いた足跡（てんてん）をすべて消去しますか？")) {
+        myNewTrackDots.forEach(dot => map.removeLayer(dot));
+        myNewTrackDots = [];
+        myNewLastDotTime = 0;
+        if (myNewWatchId !== null) {
+          navigator.geolocation.clearWatch(myNewWatchId);
+          myNewWatchId = null;
+        }
+        if (iconStatus) iconStatus.innerText = "👣"; 
+        if (messageEl) messageEl.textContent = "⚪ 足跡をリセットしました。";
+        alert("⚪ 軌跡をリセットしました。");
+      } else {
+        if (myNewWatchId !== null) {
+          document.getElementById('opt_start').checked = true;
+          if (iconStatus) iconStatus.innerText = "🟢";
+        } else {
+          document.getElementById('opt_pause').checked = true;
+          if (iconStatus) iconStatus.innerText = "🟡";
+        }
+      }
+    } else {
+      if (myNewWatchId !== null) {
+        navigator.geolocation.clearWatch(myNewWatchId);
+        myNewWatchId = null;
+      }
+      if (iconStatus) iconStatus.innerText = "👣"; 
+      if (messageEl) messageEl.textContent = "⚪ 記録は停止しています。";
+    }
   }
 }
+
+// === 🟢 【新システム】足跡スタート（30秒おき） ===
+function startNewTracking() {
+  if (!navigator.geolocation) {
+    alert("お使いのブラウザは位置情報の追跡に対応していません");
+    document.getElementById('opt_stop').checked = true; 
+    document.getElementById('track-icon-status').innerText = "👣";
+    return;
+  }
+  if (myNewWatchId !== null) return; 
+
+  myNewWatchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const uLat = pos.coords.latitude;
+      const uLng = pos.coords.longitude;
+      currentLat = uLat;
+      currentLng = uLng;
+
+      // 現在地マーク（青丸）を自動移動
+      if (currentLocationMarker) {
+        currentLocationMarker.setLatLng([uLat, uLng]);
+      } else {
+        currentLocationMarker = L.circleMarker([uLat, uLng], {
+          radius: 8, color: "blue", fillColor: "blue", fillOpacity: 0.8
+        }).addTo(map);
+      }
+
+      // 【30秒おきのドット記録システム】
+      const now = Date.now();
+      if (myNewLastDotTime === 0 || (now - myNewLastDotTime) >= 30000) {
+        const dot = L.circleMarker([uLat, uLng], {
+          radius: 4, color: "red", fillColor: "red", fillOpacity: 0.6, stroke: false
+        }).addTo(map);
+        myNewTrackDots.push(dot); // 新しい箱に保存
+        myNewLastDotTime = now;
+      }
+    },
+    (err) => {
+      console.error("位置の追跡に失敗しました:", err.message);
+      alert("⚠️ GPS信号が弱いため記録を開始できません。");
+      if (myNewWatchId !== null) {
+        navigator.geolocation.clearWatch(myNewWatchId);
+        myNewWatchId = null;
+      }
+      document.getElementById('opt_stop').checked = true;
+      document.getElementById('track-icon-status').innerText = "👣";
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
+
+// === 🟡 【新システム】足跡ひとやすみ ===
+function pauseNewTracking() {
+  if (myNewWatchId === null) return;
+  navigator.geolocation.clearWatch(myNewWatchId);
+  myNewWatchId = null;
+}  
+
 
   
   
