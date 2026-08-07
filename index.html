@@ -192,14 +192,26 @@ function updateMapMarkers() {
     // 獲得済なら緑（pin-green）、未獲得なら赤（pin-red）
     const pinClass = got ? "pin-green" : "pin-red";
 
+    // 吹き出し（ポップアップ）の中身を動的に作成
+    let popupContent = `<b>${s.name}</b><br>${s.info}`;
+    if (got) {
+      popupContent += `<br><span style="color:green; font-weight:bold;">✅ スタンプ獲得済</span>`;
+    } else {
+      // 未獲得の場合、吹き出し内にも「ここでスタンプを押す」ボタンを設置
+      popupContent += `<br><button onclick="tryGetStamp('${s.id}')" style="font-size:12px; padding:3px 6px; margin-top:5px; cursor:pointer;">ここでスタンプを押す</button>`;
+    }
+
     if (markers[s.id]) {
-      // 既にピンがある場合は、色（クラス名）だけ変更
+      // 既にピンがある場合は、色（クラス名）の変更とポップアップ内容の更新
       L.DomUtil.removeClass(markers[s.id]._icon, "pin-red");
       L.DomUtil.removeClass(markers[s.id]._icon, "pin-green");
       L.DomUtil.addClass(markers[s.id]._icon, pinClass);
+      
+      // ポップアップが開いている場合は一度閉じて中身を更新
+      markers[s.id].setPopupContent(popupContent);
     } else {
       // 最初は新しくピンを作る
-      markers[s.id] = L.marker([s.lat, s.lng]).addTo(map).bindPopup(`<b>${s.name}</b><br>${s.info}`);
+      markers[s.id] = L.marker([s.lat, s.lng]).addTo(map).bindPopup(popupContent);
       // 作成直後にクラスを付与
       L.DomUtil.addClass(markers[s.id]._icon, pinClass);
     }
