@@ -60,14 +60,42 @@ const spots = [
     radius: 30,
     info: ""
   },{
-    id: "castle",
+    id: "castle1",
     name: "鍵の手",
     lat: 36.388916, 
     lng: 140.256164,
     radius: 30,
     info: "鍵の手？"
   },{
-    id: "castle",
+    id: "castle2",
+    name: "鍵の手",
+    lat: 36.388916, 
+    lng: 140.256164,
+    radius: 30,
+    info: "鍵の手？"
+  },{
+    id: "castle3",
+    name: "鍵の手",
+    lat: 36.388916, 
+    lng: 140.256164,
+    radius: 30,
+    info: "鍵の手？"
+  },{
+    id: "castle4",
+    name: "鍵の手",
+    lat: 36.388916, 
+    lng: 140.256164,
+    radius: 30,
+    info: "鍵の手？"
+  },{
+    id: "castle5",
+    name: "鍵の手",
+    lat: 36.388916, 
+    lng: 140.256164,
+    radius: 30,
+    info: "鍵の手？"
+  },{
+    id: "castle6",
     name: "鍵の手",
     lat: 36.388916, 
     lng: 140.256164,
@@ -76,7 +104,7 @@ const spots = [
   },
 
   {
-    id: "traficright",
+    id: "traficright1",
     name: "交差点",
     lat: 36.3770,
     lng: 140.2783,
@@ -84,7 +112,7 @@ const spots = [
     info: "ここは交差点です。"
   },
   {
-    id: "traficright",
+    id: "traficright2",
     name: "交差点",
     lat: 36.3770,
     lng: 140.2783,
@@ -112,9 +140,33 @@ const spots = [
 // === 地図表示 ===
 const map = L.map("map").setView([36.3824, 140.2674], 15);
 
+// 1. 通常の地図（OpenStreetMap）レイヤーを作成
+const baseMap = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: "© OpenStreetMap",
+  opacity: 0.4 // イラストマップを重ねるため、少し薄く設定しています
+});
+
+// 2. 航空写真（国土地理院）レイヤーを作成
+const satelliteMap = L.tileLayer("https://gsi.go.jp{z}/{x}/{y}.jpg", {
+  attribution: "© 国土地理院",
+  opacity: 0.4 // イラストマップを重ねるため、通常地図と同じ薄さに設定
+});
+
+// 最初は通常の地図を表示しておく
+baseMap.addTo(map);
+
+// 3. 画面右上に「切り替えボタン」を追加
+const baseLayers = {
+  "通常地図": baseMap,
+  "航空写真": satelliteMap
+};
+L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
+
+
+// === オリジナルマップの重ね合わせ（変更なし） ===
 const imageBounds = [
   [36.376273, 140.246029], //左下
-  [36.396837,140.278823]//右上
+  [36.396837, 140.278823]  //右上
 ];
 const imageUrl = "meijiline.png"; 
 
@@ -123,11 +175,12 @@ const illustration = L.imageOverlay(imageUrl, imageBounds, {
   alt: "オリジナルマップ"
 }).addTo(map);
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution: "© OpenStreetMap",
-  opacity: 0.4 
-}).addTo(map);
 
+
+
+
+
+  
 // マーカーの見た目を更新・初期配置する関数
 function updateMapMarkers() {
   spots.forEach(s => {
@@ -253,7 +306,7 @@ function showStamps() {
     }
   });
 }
-
+//🍎リセット機能
 function resetStamps() {
   if (confirm("スタンプをすべて消しますか？")) {
     spots.forEach(s => {
