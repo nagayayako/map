@@ -22,7 +22,39 @@
     /* ピンの色を変えるためのスタイル定義 */
     .pin-red { filter: hue-rotate(0deg); }
     .pin-green { filter: hue-rotate(140deg); }
-    .pin-yellow { filter: hue-rotate(50deg); } /* 👈 黄色用の色フィルターを追加 */
+    .pin-yellow { filter: hue-rotate(-50deg); } /* 👈 黄色用の色フィルターを追加 */
+
+    /* 地図内の軌跡コントロールパネルの見た目 */
+    .track-control-panel {
+      background: white;
+      padding: 6px 8px;
+      border-radius: 4px;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+      font-family: sans-serif;
+      font-size: 13px;
+    }
+    .track-control-panel h4 {
+      margin: 0 0 5px 0;
+      font-size: 12px;
+      color: #666;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 3px;
+    }
+    /* ラジオボタンと文字の間隔調整 */
+    .track-control-panel label {
+      display: block;
+      margin: 4px 0;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .track-control-panel input {
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+
+
+    
   </style>
 </head>
 
@@ -33,16 +65,12 @@
 
 
 <div id="panel">
-  <!-- ボタンを 記録開始 / 一時中止 / リセット の3つに変更 -->
-  <button id="startBtn" onclick="startTracking()" style="background-color: #ccffcc;">🟢 記録開始</button>
-  <button id="pauseBtn" onclick="pauseTracking()" style="background-color: #fffae6;" disabled>🟡 一時中止</button>
-  <button id="clearTrackBtn" onclick="clearTracking()" style="background-color: #f0f0f0;">⚪ 軌跡リセット</button>
-  
+  <!-- 👈 ここにあった軌跡用の3つのボタンを削除 -->
   <button onclick="checkLocation()">📍 現在地をチェック</button>
   <p id="message" style="color: blue; font-weight: bold;"></p>
   <div id="stamps"></div>
   <button onclick="resetStamps()" style="margin-top: 20px; background-color: #ffcccc;">🗑 スタンプ帳をリセット</button>
-</div>
+</div> 
   
 <script>
 let currentLocationMarker = null;
@@ -203,6 +231,127 @@ const baseLayers = {
 
 L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
 
+
+// === 🆕 地図上にオリジナルの「軌跡コントロール」を作成して配置 ===
+const TrackControl = L.Control.extend({
+  options: { position: 'topright' }, // レヤーボタンの下（右上）に配置
+  onAdd: function (map) {
+    const container = L.DomUtil.create('div', 'track-control-panel');
+    
+    // パネルの中身（HTML）を生成。レイヤー選択と同じくラジオボタン形式にします
+    container.innerHTML = `
+      <h4>足跡の記録</h4>
+      <label><input type="radio" name="track_opt" id="opt_stop" checked onclick="handleTrackRadio('stop')">⚪ 停止・解除</label>
+      <label><input type="radio" name="track_opt" id="opt_start" onclick="handleTrackRadio('start')">🟢 記録開始</label>
+      <label><input type="radio" name="track_opt" id="opt_pause" onclick="handleTrackRadio('pause')">🟡 一時中止</label>
+    `;
+
+    // パネルをタッチしたときに、後ろの地図が勝手に動いたり拡大縮小したりするのを防ぐおまじない
+    L.DomEvent.disableClickPropagation(container);
+    return container;
+  }
+});
+map.addControl(new TrackControl());
+
+
+// === 🆕 ラジオボタンの選択によって機能を切り替える関数 ===
+function handleTrackRadio(mode) {
+  if (mode === 'start') {
+    startTracking();
+  } else if (mode === 'pause') {
+    pauseTracking();
+  } else if (mode === 'stop') {
+    // 停止（リセット）が選ばれたとき
+    if (trackDots.length > 0) {
+      if (confirm("これまでに記録した歩いた足跡（てんてん）をすべて消去しますか？")) {
+        // 承諾されたら消去して「停止」状態維持
+        trackDots.forEach(dot => map.removeLayer(dot));
+        trackDots = [];
+        if (watchId !== null) {
+          navigator.geolocation.clearWatch(watchId);
+          watchId = null;
+        }
+        alert("⚪ 軌跡をリセットしました。");
+      } else {
+        // キャンセルされたら、直前の状態（開始か一時中止）のボタンにチェックを戻す
+        if (watchId !== null) {
+          document.getElementById('opt_start').checked = true;
+        } else {
+          document.getElementById('opt_pause').checked = true;
+        }
+      }
+    } else {
+      // 最初からデータがない場合は、そのままGPS監視を止めるだけ
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+    }
+  }
+}
+
+// === 🟢 記録開始（内部ロジックをラジオボタン用に微調整） ===
+function startTracking() {
+  if (!navigator.geolocation) {
+    alert("お使いのブラウザは位置情報の追跡に対応していません");
+    document.getElementById('opt_stop').checked = true; // ラジオボタンを戻す
+    return;
+  }
+  if (watchId !== null) return;
+
+  watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const uLat = pos.coords.latitude;
+      const uLng = pos.coords.longitude;
+      currentLat = uLat;
+      currentLng = uLng;
+
+      if (currentLocationMarker) {
+        currentLocationMarker.setLatLng([uLat, uLng]);
+      } else {
+        currentLocationMarker = L.circleMarker([uLat, uLng], {
+          radius: 8, color: "blue", fillColor: "blue", fillOpacity: 0.8
+        }).addTo(map);
+      }
+
+      let isDuplicate = false;
+      if (trackDots.length > 0) {
+        const lastDotLatLng = trackDots[trackDots.length - 1].getLatLng();
+        if (lastDotLatLng.lat === uLat && lastDotLatLng.lng === uLng) {
+          isDuplicate = true;
+        }
+      }
+
+      if (!isDuplicate) {
+        const dot = L.circleMarker([uLat, uLng], {
+          radius: 4, color: "red", fillColor: "red", fillOpacity: 0.6, stroke: false
+        }).addTo(map);
+        trackDots.push(dot);
+      }
+    },
+    (err) => {
+      console.error("位置の追跡に失敗しました:", err.message);
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
+
+// === 🟡 一時中止 ===
+function pauseTracking() {
+  if (watchId === null) return;
+  navigator.geolocation.clearWatch(watchId);
+  watchId = null;
+}
+
+
+
+
+
+
+  
+
+
+  
   
 function updateMapMarkers() {
   spots.forEach(s => {
