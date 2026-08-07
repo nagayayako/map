@@ -32,16 +32,16 @@
 
 
 <div id="panel">
-  <!-- 📍ボタンの横あたりに追加してください -->
-  <button id="startBtn" onclick="startTracking()" style="background-color: #ccffcc;">🏁 スタンプラリー開始</button>
-  <button id="stopBtn" onclick="stopTracking()" style="background-color: #ffcccc;" disabled>🎯 ゴール！</button>
+  <!-- ボタンを 記録開始 / 一時中止 / リセット の3つに変更 -->
+  <button id="startBtn" onclick="startTracking()" style="background-color: #ccffcc;">🟢 記録開始</button>
+  <button id="pauseBtn" onclick="pauseTracking()" style="background-color: #fffae6;" disabled>🟡 一時中止</button>
+  <button id="clearTrackBtn" onclick="clearTracking()" style="background-color: #f0f0f0;">⚪ 軌跡リセット</button>
   
   <button onclick="checkLocation()">📍 現在地をチェック</button>
   <p id="message" style="color: blue; font-weight: bold;"></p>
   <div id="stamps"></div>
   <button onclick="resetStamps()" style="margin-top: 20px; background-color: #ffcccc;">🗑 スタンプ帳をリセット</button>
 </div>
-
   
 <script>
 let currentLocationMarker = null;
@@ -376,12 +376,12 @@ function resetStamps() {
 
 
 ////////////軌跡ここから
-// === 軌跡（ルート記録）機能の変数 ===
-let watchId = null;          // GPSの継続監視を管理するID
-let routePath = [];         // 歩いた緯度経度のリストを保存する箱
-let routeLine = null;       // 地図上に引く線のオブジェクト
 
-// === 🏁 スタンプラリー開始（追跡スタート） ===
+// === 軌跡（ドット記録機能）の変数 ===
+let watchId = null;            // GPSの継続監視を管理するID
+let trackDots = [];            // 地図上に打った「てんてん」のマークを保存する配列
+
+// === 🟢 記録開始 ===
 function startTracking() {
   if (!navigator.geolocation) {
     alert("お使いのブラウザは位置情報の追跡に対応していません");
@@ -390,47 +390,23 @@ function startTracking() {
 
   if (watchId !== null) return; // 既に開始していれば何もしない
 
-  alert("🏁 記録を開始しました！歩くと地図に軌跡が描かれます。");
+  alert("🟢 軌跡の記録を開始しました！");
   
-  // ボタンの有効・無効を切り替え
+  // ボタンの状態を切り替え
   document.getElementById("startBtn").disabled = true;
-  document.getElementById("stopBtn").disabled = false;
+  document.getElementById("pauseBtn").disabled = false;
 
-  // 軌跡データを初期化し、古い線があれば地図から消す
-  routePath = [];
-  if (routeLine) {
-    map.removeLayer(routeLine);
-  }
-
-  // watchPositionを使って、移動を自動で検知し続ける
+  // 位置の監視をスタート
   watchId = navigator.geolocation.watchPosition(
     (pos) => {
       const uLat = pos.coords.latitude;
       const uLng = pos.coords.longitude;
 
-      // 最新の現在地を記録
+      // 現在地データを更新
       currentLat = uLat;
       currentLng = uLng;
 
-      // 1つ前の位置と同じでなければ、軌跡リスト（配列）に緯度経度を追加
-      const lastPoint = routePath[routePath.length - 1];
-      if (!lastPoint || lastPoint[0] !== uLat || lastPoint[1] !== uLng) {
-        routePath.push([uLat, uLng]);
-      }
-
-      // 地図上に引く線の設定（すでに線があれば更新、なければ新しく作る）
-      if (routeLine) {
-        routeLine.setLatLngs(routePath);
-      } else {
-        routeLine = L.polyline(routePath, {
-          color: "red",       // 線の色（赤）
-          weight: 5,         // 線の太さ
-          opacity: 0.8,       // 線の透明度
-          dashArray: "5, 10"  // 点線にしたい場合は指定（実線ならこの行を消す）
-        }).addTo(map);
-      }
-
-      // 現在地マーク（青丸）も自動で移動させる
+      // 現在地マーク（青丸）の表示・移動
       if (currentLocationMarker) {
         currentLocationMarker.setLatLng([uLat, uLng]);
       } else {
@@ -438,32 +414,71 @@ function startTracking() {
           radius: 8, color: "blue", fillColor: "blue", fillOpacity: 0.8
         }).addTo(map);
       }
+
+      // 【てんてん（ドット）を打つ処理】
+      // 1つ前に打った点と完全に同じ位置でなければ、新しい点を打つ
+      let isDuplicate = false;
+      if (trackDots.length > 0) {
+        const lastDotLatLng = trackDots[trackDots.length - 1].getLatLng();
+        if (lastDotLatLng.lat === uLat && lastDotLatLng.lng === uLng) {
+          isDuplicate = true;
+        }
+      }
+
+      if (!isDuplicate) {
+        // 小さな赤いドットを地図上に配置
+        const dot = L.circleMarker([uLat, uLng], {
+          radius: 4,           // 点の大きさ（ドット）
+          color: "red",        // 枠線の色
+          fillColor: "red",   // 塗りつぶしの色
+          fillOpacity: 0.6,    // 透明度
+          stroke: false        // 枠線を消して滑らかな丸にする
+        }).addTo(map);
+
+        // あとで一括消去できるように配列に保存
+        trackDots.push(dot);
+      }
     },
     (err) => {
       console.error("位置の追跡に失敗しました:", err.message);
     },
     {
-      enableHighAccuracy: true, // 高精度GPSを使用
+      enableHighAccuracy: true,
       timeout: 10000,
       maximumAge: 0
     }
   );
 }
 
-// === 🎯 ゴール（追跡ストップ） ===
-function stopTracking() {
+// === 🟡 一時中止 ===
+function pauseTracking() {
   if (watchId === null) return;
 
-  // GPSの監視をストップする
+  // GPSの監視のみを止める（打った点データ trackDots はそのまま残る）
   navigator.geolocation.clearWatch(watchId);
   watchId = null;
 
-  alert("🎯 ゴール！お疲れ様でした。歩いたルートが地図に残ります。");
+  alert("🟡 記録を一時中止しました。移動しても点は打たれません。");
 
-  // ボタンの状態を元に戻す
+  // ボタンの状態を戻す
   document.getElementById("startBtn").disabled = false;
-  document.getElementById("stopBtn").disabled = true;
+  document.getElementById("pauseBtn").disabled = true;
 }
+
+// === ⚪ 軌跡リセット ===
+function clearTracking() {
+  if (confirm("これまでに記録した歩いた足跡（てんてん）をすべて消去しますか？")) {
+    // 地図上からすべてのドットを削除
+    trackDots.forEach(dot => {
+      map.removeLayer(dot);
+    });
+    // 配列も空っぽにする
+    trackDots = [];
+    alert("⚪ 軌跡をリセットしました。");
+  }
+}
+
+  
 ////////////軌跡ここまで
 
 
