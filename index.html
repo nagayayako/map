@@ -524,9 +524,23 @@ function updateMapMarkers() {
       // ポップアップが開いたままでも中身が切り替わるように更新
       markers[s.id].setPopupContent(popupContent);
     } else {
-      const marker = L.marker([s.lat, s.lng]).addTo(map).bindPopup(popupContent);
-      L.DomUtil.addClass(marker._icon, pinClass);
-      markers[s.id] = marker;
+
+    
+        const smallIcon = L.icon({
+          iconUrl: 'https://unpkg.com', // デフォルトのピン画像
+          shadowUrl: 'https://unpkg.com', // デフォルトの影画像
+          iconSize:,       // ピンの大きさ（標準の [25, 41] から約40%小さくしました！）
+          shadowSize:,     // 影の大きさ
+          iconAnchor:,      // ピンの根元が正確に緯度経度を指すように調整（幅の半分, 高さ）
+          shadowAnchor:,    // 影の位置調整
+          popupAnchor: [0, -24]     // 吹き出しが出る位置を少し上に調整
+        });
+      
+        const marker = L.marker([s.lat, s.lng], { icon: smallIcon }).addTo(map).bindPopup(popupContent);
+        L.DomUtil.addClass(marker._icon, pinClass);
+        markers[s.id] = marker;    
+    
+    
     }
   });
 }
