@@ -204,7 +204,6 @@ const baseLayers = {
 L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
 
   
-// マーカーの見た目を更新・初期配置する関数（長押しで黄色切り替え機能付き）
 function updateMapMarkers() {
   spots.forEach(s => {
     const got = localStorage.getItem("stamp_" + s.id);      // 獲得済（緑）
@@ -219,73 +218,62 @@ function updateMapMarkers() {
     }
 
     // 2. 吹き出し（ポップアップ）の中身を作成
-    let popupContent = `<div style="text-align: center; font-family: sans-serif; min-width: 140px;">`;
+    let popupContent = `<div style="text-align: center; font-family: sans-serif; min-width: 160px;">`;
     if (got) {
+      // 【獲得済】
       popupContent += `
         <img src="https://icons8.com" alt="スタンプ" style="width: 50px; height: 50px; object-fit: contain; margin-bottom: 5px; animation: stampPop 0.3s ease-out;">
         <br><b style="font-size: 14px;">${s.name}</b><br>
         <span style="font-size: 12px; color: #666;">${s.info}</span><br>
         <span style="color: green; font-weight: bold; font-size: 13px; display: inline-block; margin-top: 5px;">✅ 獲得済</span>`;
     } else {
+      // 【未獲得】ボタンを横並びに配置
+      // 黄色状態なら「📍外す」、赤色状態なら「📍行きたい」に文字が変わります
+      const wishButtonText = wish ? "📍外す" : "📍行きたい";
+      const wishButtonColor = wish ? "#fff0f0" : "#fffde6"; // 状態に合わせてボタンの色も少し変化
+
       popupContent += `
         <img src="https://icons8.com" alt="スタンプ" style="width: 50px; height: 50px; object-fit: contain; margin-bottom: 5px; opacity: 0.2; filter: grayscale(100%);">
         <br><b style="font-size: 14px;">${s.name}</b><br>
         <span style="font-size: 12px; color: #666;">${s.info}</span><br>
-        <button onclick="tryGetStamp('${s.id}')" style="font-size: 12px; padding: 4px 8px; margin-top: 8px; cursor: pointer; background-color: #fff; border: 1px solid #ccc; border-radius: 4px;">ここでスタンプを押す</button>
-        <p style="font-size: 10px; color: #999; margin: 5px 0 0 0;">💡ピン長押しで「行きたい（黄）」切替</p>`; // 案内文を追加
+        
+        <div style="margin-top: 8px; display: flex; justify-content: center; gap: 5px;">
+          <button onclick="tryGetStamp('${s.id}')" style="font-size: 11px; padding: 4px 6px; cursor: pointer; background-color: #fff; border: 1px solid #ccc; border-radius: 4px;">
+            押す
+          </button>
+          <button onclick="toggleWish('${s.id}')" style="font-size: 11px; padding: 4px 6px; cursor: pointer; background-color: ${wishButtonColor}; border: 1px solid #ccc; border-radius: 4px;">
+            ${wishButtonText}
+          </button>
+        </div>`;
     }
     popupContent += `</div>`;
 
     // 3. マーカーの配置または更新
     if (markers[s.id]) {
-      // 既にピンがある場合は、すべての色クラスをリセットしてから最新のクラスを付与
       L.DomUtil.removeClass(markers[s.id]._icon, "pin-red");
       L.DomUtil.removeClass(markers[s.id]._icon, "pin-green");
       L.DomUtil.removeClass(markers[s.id]._icon, "pin-yellow");
       L.DomUtil.addClass(markers[s.id]._icon, pinClass);
       
+      // ポップアップが開いたままでも中身が切り替わるように更新
       markers[s.id].setPopupContent(popupContent);
     } else {
-      // 最初は新しくピンを作る
       const marker = L.marker([s.lat, s.lng]).addTo(map).bindPopup(popupContent);
       L.DomUtil.addClass(marker._icon, pinClass);
       markers[s.id] = marker;
-
-      // --- スマホ＆PC対応：長押し（ロングタップ）判定の追加 ---
-      let pressTimer;
-
-      // マウスを押した / 画面をタッチした時
-      const startPress = function(e) {
-        // すでにスタンプ獲得済みの場合は長押し無効
-        if (localStorage.getItem("stamp_" + s.id)) return;
-
-        // 600ミリ秒（0.6秒）押し続けたら「長押し」と判定
-        pressTimer = window.setTimeout(function() {
-          const isWish = localStorage.getItem("wish_" + s.id);
-          if (isWish) {
-            localStorage.removeItem("wish_" + s.id); // 黄色なら解除（赤に戻す）
-          } else {
-            localStorage.setItem("wish_" + s.id, "true"); // 赤なら黄色にする
-          }
-          updateMapMarkers(); // 地図の見た目を即座に更新
-        }, 600);
-      };
-
-      // 指やマウスが離れた / 動いた時はタイマーをリセット（長押しキャンセル）
-      const cancelPress = function(e) {
-        clearTimeout(pressTimer);
-      };
-
-      // ピンのアイコン（HTML要素）にイベントを紐付け
-      const iconElement = marker._icon;
-      iconElement.addEventListener('mousedown', startPress);
-      iconElement.addEventListener('touchstart', startPress, { passive: true });
-      iconElement.addEventListener('mouseup', cancelPress);
-      iconElement.addEventListener('mouseleave', cancelPress);
-      iconElement.addEventListener('touchend', cancelPress);
-      iconElement.addEventListener('touchmove', cancelPress);
     }
   });
+}
+
+// === 新設：「行きたい」ボタンが押された時のオンオフ処理 ===
+function toggleWish(id) {
+  const wish = localStorage.getItem("wish_" + id);
+  if (wish) {
+    localStorage.removeItem("wish_" + id); // すでに登録されていれば解除
+  } else {
+    localStorage.setItem("wish_" + id, "true"); // なければ登録
+  }
+  updateMapMarkers(); // 地図のピンの色とボタン表示を即座に更新
 }
 
 // === 距離計算 ===
