@@ -440,7 +440,40 @@ function pauseTracking() {
   navigator.geolocation.clearWatch(watchId);
   watchId = null;
 }
+// === ⭕️ パンくずが消えるバグを修正した開閉制御関数 ===
+function setupControlToggle(container) {
+  container.classList.add('custom-map-control', 'collapsed');
 
+  // アイコンをタップ、またはマウスが乗ったら「開く」
+  const expand = () => {
+    container.classList.remove('collapsed');
+    container.classList.add('expanded');
+  };
+  container.addEventListener('mouseenter', expand);
+  container.addEventListener('touchstart', expand, { passive: true });
+
+  // マウスが完全に離れたら折りたたむ
+  container.addEventListener('mouseleave', () => {
+    container.classList.remove('expanded');
+    container.classList.add('collapsed');
+  });
+
+  // ラジオボタンをクリックした時は、誤作動を防ぐため「0.3秒待ってから」閉じる
+  container.addEventListener('change', () => {
+    setTimeout(() => {
+      container.classList.remove('expanded');
+      container.classList.add('collapsed');
+    }, 300);
+  });
+
+  // 【バグ修正】画面クリック時のみ閉じる（自動移動でフリーズするのを防ぐ）
+  map.on('click', () => {
+    container.classList.remove('expanded');
+    container.classList.add('collapsed');
+  });
+
+  L.DomEvent.disableClickPropagation(container);
+}
   
 
 
