@@ -315,14 +315,15 @@ const CustomTrackControl = L.Control.extend({
   onAdd: function () {
     const container = L.DomUtil.create('div');
     
-    // アイコンは「👣」、中身は軌跡の3択ラジオボタン
+    // 上から 記録開始 ＞ 一時停止 ＞ 停止・リセット の順に変更
+    // アイコン部分に状態識別用のidを付与
     container.innerHTML = `
-      <div class="control-icon">👣</div>
+      <div class="control-icon" id="track-icon-status">👣</div>
       <div class="control-content">
         <h4>足跡の記録</h4>
-        <label><input type="radio" name="track_opt" id="opt_stop" checked onclick="handleTrackRadio('stop')">⚪ 停止・解除</label>
         <label><input type="radio" name="track_opt" id="opt_start" onclick="handleTrackRadio('start')">🟢 記録開始</label>
-        <label><input type="radio" name="track_opt" id="opt_pause" onclick="handleTrackRadio('pause')">🟡 一時中止</label>
+        <label><input type="radio" name="track_opt" id="opt_pause" onclick="handleTrackRadio('pause')">🟡 一時停止</label>
+        <label><input type="radio" name="track_opt" id="opt_stop" checked onclick="handleTrackRadio('stop')">⚪ リセット・解除</label>
       </div>
     `;
     setupControlToggle(container);
@@ -331,8 +332,49 @@ const CustomTrackControl = L.Control.extend({
 });
 map.addControl(new CustomTrackControl());
 
+// === ラジオボタンの選択によって機能を切り替える関数 ===
+function handleTrackRadio(mode) {
+  const iconStatus = document.getElementById('track-icon-status');
 
-
+  if (mode === 'start') {
+    startTracking();
+    if (iconStatus) iconStatus.innerText = "🟢"; // アイコンを緑丸に変える
+  } else if (mode === 'pause') {
+    pauseTracking();
+    if (iconStatus) iconStatus.innerText = "🟡"; // アイコンを黄丸に変える
+  } else if (mode === 'stop') {
+    // 停止（リセット）が選ばれたとき
+    if (trackDots.length > 0) {
+      if (confirm("これまでに記録した歩いた足跡（てんてん）をすべて消去しますか？")) {
+        // 承諾されたら消去して「停止」状態へ
+        trackDots.forEach(dot => map.removeLayer(dot));
+        trackDots = [];
+        if (watchId !== null) {
+          navigator.geolocation.clearWatch(watchId);
+          watchId = null;
+        }
+        if (iconStatus) iconStatus.innerText = "👣"; // 通常の足跡アイコンに戻す
+        alert("⚪ 軌跡をリセットしました。");
+      } else {
+        // キャンセルされたら、直前の状態（開始か一時中止）のボタンにチェックを戻す
+        if (watchId !== null) {
+          document.getElementById('opt_start').checked = true;
+          if (iconStatus) iconStatus.innerText = "🟢";
+        } else {
+          document.getElementById('opt_pause').checked = true;
+          if (iconStatus) iconStatus.innerText = "🟡";
+        }
+      }
+    } else {
+      // 最初からデータがない場合は、そのままGPS監視を止めるだけ
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      if (iconStatus) iconStatus.innerText = "👣"; // 通常の足跡アイコンに戻す
+    }
+  }
+}
 
   
 
