@@ -94,6 +94,8 @@
 
 <div id="panel">
   <!-- 📍ボタンの横あたりに追加してください -->
+  <button id="startBtn" onclick="startTracking()" style="background-color: #ccffcc;">🏁 スタンプラリー開始</button>
+  <button id="stopBtn" onclick="stopTracking()" style="background-color: #ffcccc;" disabled>🎯 ゴール！</button>
   
   <button onclick="checkLocation()">📍 現在地をチェック</button>
   <p id="message" style="color: blue; font-weight: bold;"></p>
@@ -342,123 +344,18 @@ const CustomTrackControl = L.Control.extend({
 map.addControl(new CustomTrackControl());
 
 // 🆕 ⑤ ボタンが押されたときに「とりあえずメッセージを出す」だけの仮の関数
-// === 🆕 ⑥ 本物の足跡切り替え ＆ メッセージ連動システム ===
-let watchId = null;          // GPSの継続監視を管理するID
-let trackDots = [];          // 地図上に打った「てんてん」のマークを保存する箱
-let lastDotTime = 0;         // 最後にドットを打った時刻（ミリ秒）
-
 function handleTrackRadio(mode) {
-  const iconStatus = document.getElementById('track-icon-status');
   const messageEl = document.getElementById('message');
-
+  
   if (mode === 'start') {
-    startTracking(); // 🟢 GPS追跡スタート
-    if (iconStatus) iconStatus.innerText = "🟢"; 
-    if (messageEl) messageEl.textContent = "🟢 足跡の記録を開始しました！30秒ごとに点を打ちます。";
-  } 
-  
-  else if (mode === 'pause') {
-    pauseTracking(); // 🟡 GPS追跡を一時停止（ドットデータは残る）
-    if (iconStatus) iconStatus.innerText = "🟡"; 
-    if (messageEl) messageEl.textContent = "🟡 足跡の記録をひとやすみしています。";
-  } 
-  
-  else if (mode === 'stop') {
-    // ⚪ リセットが選ばれたとき
-    if (trackDots.length > 0) {
-      if (confirm("これまでに記録した歩いた足跡（てんてん）をすべて消去しますか？")) {
-        // ユーザーがOKを押したら全消去してGPSを完全停止
-        trackDots.forEach(dot => map.removeLayer(dot));
-        trackDots = [];
-        lastDotTime = 0;
-        if (watchId !== null) {
-          navigator.geolocation.clearWatch(watchId);
-          watchId = null;
-        }
-        if (iconStatus) iconStatus.innerText = "👣"; 
-        if (messageEl) messageEl.textContent = "⚪ 足跡をリセットしました。";
-        alert("⚪ 軌跡をリセットしました。");
-      } else {
-        // キャンセルされたら、ラジオボタンのチェックを直前の状態（開始か一時停止）に自動で弾き戻す
-        if (watchId !== null) {
-          document.getElementById('opt_start').checked = true;
-          if (iconStatus) iconStatus.innerText = "🟢";
-        } else {
-          document.getElementById('opt_pause').checked = true;
-          if (iconStatus) iconStatus.innerText = "🟡";
-        }
-      }
-    } else {
-      // 最初からデータがない場合は、そのままGPS監視を止めるだけ
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
-        watchId = null;
-      }
-      if (iconStatus) iconStatus.innerText = "👣"; 
-      if (messageEl) messageEl.textContent = "⚪ 記録は停止しています。";
-    }
+    if (messageEl) messageEl.textContent = "🟢 【テスト】スタートが押されました（まだGPSは動きません）";
+  } else if (mode === 'pause') {
+    if (messageEl) messageEl.textContent = "🟡 【テスト】ひとやすみが押されました";
+  } else if (mode === 'stop') {
+    if (messageEl) messageEl.textContent = "⚪ 【テスト】リセットが押されました";
   }
 }
 
-// === 🟢 足跡スタート（再開・エラー復旧対応） ===
-function startTracking() {
-  if (!navigator.geolocation) {
-    alert("お使いのブラウザは位置情報の追跡に対応していません");
-    document.getElementById('opt_stop').checked = true; 
-    document.getElementById('track-icon-status').innerText = "👣";
-    return;
-  }
-  if (watchId !== null) return; // 既に動いていれば何もしない（「ひとやすみ」からの再開を可能にする）
-
-  watchId = navigator.geolocation.watchPosition(
-    (pos) => {
-      const uLat = pos.coords.latitude;
-      const uLng = pos.coords.longitude;
-      currentLat = uLat;
-      currentLng = uLng;
-
-      // 現在地マーク（青丸）を自動移動
-      if (currentLocationMarker) {
-        currentLocationMarker.setLatLng([uLat, uLng]);
-      } else {
-        currentLocationMarker = L.circleMarker([uLat, uLng], {
-          radius: 8, color: "blue", fillColor: "blue", fillOpacity: 0.8
-        }).addTo(map);
-      }
-
-      // 【30秒おきのドット記録システム】
-      const now = Date.now();
-      if (lastDotTime === 0 || (now - lastDotTime) >= 30000) {
-        const dot = L.circleMarker([uLat, uLng], {
-          radius: 4, color: "red", fillColor: "red", fillOpacity: 0.6, stroke: false
-        }).addTo(map);
-        trackDots.push(dot);
-        lastDotTime = now;
-      }
-    },
-    (err) => {
-      console.error("位置の追跡に失敗しました:", err.message);
-      alert("⚠️ GPS信号が弱いため記録を開始できません。");
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
-        watchId = null;
-      }
-      document.getElementById('opt_stop').checked = true;
-      document.getElementById('track-icon-status').innerText = "👣";
-    },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-  );
-}
-
-// === 🟡 足跡ひとやすみ ===
-function pauseTracking() {
-  if (watchId === null) return;
-  // GPSの電波キャッチ（監視）だけを遮断する。これまでのドット配列や時間はそのまま維持されます
-  navigator.geolocation.clearWatch(watchId);
-  watchId = null;
-}
-
-  
   
   
 // マーカーの見た目を更新・初期配置する関数（吹き出し内に「行きたいボタン」を追加）
