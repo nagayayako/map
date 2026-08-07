@@ -526,24 +526,21 @@ function updateMapMarkers() {
     } else {
 
     
-  // 外部画像を使わず、HTMLで直接かわいいミニピン（横16px、縦25px）を描きます
-  const miniSvgIcon = L.divIcon({
-    className: 'custom-mini-pin', // 専用のクラス名
+ const miniSvgIcon = L.divIcon({
+    className: 'custom-mini-pin',
     html: `
       <svg width="16" height="25" viewBox="0 0 24 38" fill="none" xmlns="http://w3.org">
         <path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 38 12 38C12 38 24 21 24 12C24 5.37 18.63 0 12 0ZM12 16.5C9.51 16.5 7.5 14.49 7.5 12C7.5 9.51 9.51 7.5 12 7.5C14.49 7.5 16.5 9.51 16.5 12C16.5 14.49 14.49 16.5 12 16.5Z" fill="currentColor"/>
       </svg>
     `,
-    iconSize:,     // ピン全体の大きさ
-    iconAnchor:,    // ピンの尖った根元が正確にスポットを指す位置（中心, 下端）
-    popupAnchor: [0, -26]   // 吹き出しが出る位置
+    iconSize: L.point(16, 25),       // 横16px、縦25pxのミニサイズにカチッと固定！
+    iconAnchor: L.point(8, 25),      // ピンの尖った根元が正確にスポットを指す中心点
+    popupAnchor: L.point(0, -26)     // 吹き出しが出る位置
   });
 
-  // icon: miniSvgIcon を指定してピンを作ります
   const marker = L.marker([s.lat, s.lng], { icon: miniSvgIcon }).addTo(map).bindPopup(popupContent);
   L.DomUtil.addClass(marker._icon, pinClass);
   markers[s.id] = marker;
-
       
     }
   });
