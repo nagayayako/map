@@ -210,14 +210,36 @@ function updateMapMarkers() {
     // 獲得済なら緑（pin-green）、未獲得なら赤（pin-red）
     const pinClass = got ? "pin-green" : "pin-red";
 
-    // 吹き出し（ポップアップ）の中身を動的に作成
-    let popupContent = `<b>${s.name}</b><br>${s.info}`;
+    // --- 吹き出しの中身（HTML）を作成 ---
+    // text-align: center で全体をセンタリングします
+    let popupContent = `<div style="text-align: center; font-family: sans-serif; min-width: 140px;">`;
+
     if (got) {
-      popupContent += `<br><span style="color:green; font-weight:bold;">✅ スタンプ獲得済</span>`;
+      // 【獲得済】上にスタンプ画像を大きく表示（ポンと押された演出用）
+      popupContent += `
+        <img src="https://icons8.com" 
+             alt="スタンプ" 
+             style="width: 50px; height: 50px; object-fit: contain; margin-bottom: 5px; animation: stampPop 0.3s ease-out;">
+        <br>
+        <b style="font-size: 14px;">${s.name}</b><br>
+        <span style="font-size: 12px; color: #666;">${s.info}</span><br>
+        <span style="color: green; font-weight: bold; font-size: 13px; display: inline-block; margin-top: 5px;">✅ 獲得済</span>`;
     } else {
-      // 未獲得の場合、吹き出し内にも「ここでスタンプを押す」ボタンを設置
-      popupContent += `<br><button onclick="tryGetStamp('${s.id}')" style="font-size:12px; padding:3px 6px; margin-top:5px; cursor:pointer;">ここでスタンプを押す</button>`;
+      // 【未獲得】上には薄いグレーのスタンプシルエットを表示（まだ押されていないイメージ）
+      popupContent += `
+        <img src="https://icons8.com" 
+             alt="スタンプ" 
+             style="width: 50px; height: 50px; object-fit: contain; margin-bottom: 5px; opacity: 0.2; filter: grayscale(100%);">
+        <br>
+        <b style="font-size: 14px;">${s.name}</b><br>
+        <span style="font-size: 12px; color: #666;">${s.info}</span><br>
+        <button onclick="tryGetStamp('${s.id}')" 
+                style="font-size: 12px; padding: 4px 8px; margin-top: 8px; cursor: pointer; background-color: #fff; border: 1px solid #ccc; border-radius: 4px;">
+          ここでスタンプを押す
+        </button>`;
     }
+
+    popupContent += `</div>`;
 
     if (markers[s.id]) {
       // 既にピンがある場合は、色（クラス名）の変更とポップアップ内容の更新
