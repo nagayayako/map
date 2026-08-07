@@ -23,6 +23,65 @@
     .pin-red { filter: hue-rotate(0deg); }
     .pin-green { filter: hue-rotate(140deg); }
     .pin-yellow { filter: hue-rotate(50deg); } /* 👈 黄色用の色フィルターをここに追記 */
+
+    /* 自作四角パネルの共通スタイル */
+    .custom-map-control {
+      background: #ffffff;
+      border-radius: 4px;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+      font-family: sans-serif;
+      font-size: 13px;
+      color: #333;
+    }
+    
+    /* 最小化（閉じている時）の見た目（34px四方の正方形） */
+    .custom-map-control.collapsed {
+      width: 34px;
+      height: 34px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .custom-map-control.collapsed .control-icon {
+      font-size: 16px;
+      display: block;
+    }
+    .custom-map-control.expanded .control-icon {
+      display: none;
+    }
+    
+    /* 展開している（開いている時）の見た目 */
+    .custom-map-control.expanded {
+      width: auto;
+      height: auto;
+      padding: 8px 10px;
+    }
+    .custom-map-control h4 {
+      margin: 0 0 6px 0;
+      font-size: 12px;
+      color: #666;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 3px;
+      white-space: nowrap;
+    }
+    .custom-map-control label {
+      display: block;
+      margin: 6px 0;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .custom-map-control input {
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+    .custom-map-control .control-content {
+      display: none;
+    }
+    .custom-map-control.expanded .control-content {
+      display: block;
+    }
+
   </style>
 </head>
 
@@ -195,14 +254,73 @@ originalMapGroup.addTo(map);
 
 
 // === 5. 右上の切り替えボタンに3つの選択肢を登録 ===
-const baseLayers = {
-  "オリジナル地図": originalMapGroup,
-  "元の地図": baseMap,
-  "航空写真": satelliteMap
-};
+// === 🆕 ① スマホでも絶対に誤作動しない「四角パネル自動開閉システム」 ===
+function setupControlToggle(container) {
+  // 最初は「最小化（collapsed）」状態にする
+  container.classList.add('custom-map-control', 'collapsed');
 
-L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
+  // アイコンをタップ、またはマウスが乗ったら「開く」
+  const expand = () => {
+    container.classList.remove('collapsed');
+    container.classList.add('expanded');
+  };
+  container.addEventListener('mouseenter', expand);
+  container.addEventListener('touchstart', expand, { passive: true });
 
+  // マウスが完全に離れたら折りたたむ（最小化）
+  container.addEventListener('mouseleave', () => {
+    container.classList.remove('expanded');
+    container.classList.add('collapsed');
+  });
+
+  // ラジオボタンをクリックした時は、タッチのズレを防ぐため「0.3秒待ってから」閉じる
+  container.addEventListener('change', () => {
+    setTimeout(() => {
+      container.classList.remove('expanded');
+      container.classList.add('collapsed');
+    }, 300);
+  });
+
+  // 地図画面をタップしたら折りたたむ
+  map.on('click', () => {
+    container.classList.remove('expanded');
+    container.classList.add('collapsed');
+  });
+
+  // パネル内を触ったときに後ろの地図が勝手に動くのを防ぐ
+  L.DomEvent.disableClickPropagation(container);
+}
+
+// === 🆕 ② 自作「地図切り替え四角パネル」 ===
+const CustomLayersControl = L.Control.extend({
+  options: { position: 'topright' },
+  onAdd: function () {
+    const container = L.DomUtil.create('div');
+    container.innerHTML = `
+      <div class="control-icon">🗺</div>
+      <div class="control-content">
+        <h4>地図の切り替え</h4>
+        <label><input type="radio" name="layer_opt" checked onclick="handleLayerRadio('original')">オリジナル地図</label>
+        <label><input type="radio" name="layer_opt" onclick="handleLayerRadio('base')">元の地図</label>
+        <label><input type="radio" name="layer_opt" onclick="handleLayerRadio('satellite')">航空写真</label>
+      </div>
+    `;
+    setupControlToggle(container);
+    return container;
+  }
+});
+map.addControl(new CustomLayersControl());
+
+// 🆕 ③ 地図切り替えの実際の処理
+function handleLayerRadio(type) {
+  map.removeLayer(originalMapGroup);
+  map.removeLayer(baseMap);
+  map.removeLayer(satelliteMap);
+
+  if (type === 'original') originalMapGroup.addTo(map);
+  if (type === 'base') baseMap.addTo(map);
+  if (type === 'satellite') satelliteMap.addTo(map);
+}
   
 // マーカーの見た目を更新・初期配置する関数（吹き出し内に「行きたいボタン」を追加）
 function updateMapMarkers() {
