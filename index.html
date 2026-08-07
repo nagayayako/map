@@ -94,8 +94,6 @@
 
 <div id="panel">
   <!-- 📍ボタンの横あたりに追加してください -->
-  <button id="startBtn" onclick="startTracking()" style="background-color: #ccffcc;">🏁 スタンプラリー開始</button>
-  <button id="stopBtn" onclick="stopTracking()" style="background-color: #ffcccc;" disabled>🎯 ゴール！</button>
   
   <button onclick="checkLocation()">📍 現在地をチェック</button>
   <p id="message" style="color: blue; font-weight: bold;"></p>
@@ -370,6 +368,7 @@ function handleTrackRadio(mode) {
       if (confirm("これまでに記録した歩いた足跡（てんてん）をすべて消去しますか？")) {
         myNewTrackDots.forEach(dot => map.removeLayer(dot));
         myNewTrackDots = [];
+        localStorage.removeItem("saved_breadcrumbs"); // 👈 これを追記して保存データも消します
         myNewLastDotTime = 0;
         if (myNewWatchId !== null) {
           navigator.geolocation.clearWatch(myNewWatchId);
@@ -424,15 +423,26 @@ function startNewTracking() {
         }).addTo(map);
       }
 
-      // 【30秒おきのドット記録システム】
+      // 【30秒おきのドット記録システム】（ドットを打つと同時に、ブラウザに保存します）
       const now = Date.now();
       if (myNewLastDotTime === 0 || (now - myNewLastDotTime) >= 30000) {
         const dot = L.circleMarker([uLat, uLng], {
           radius: 4, color: "red", fillColor: "red", fillOpacity: 0.6, stroke: false
         }).addTo(map);
-        myNewTrackDots.push(dot); // 新しい箱に保存
+        myNewTrackDots.push(dot); 
         myNewLastDotTime = now;
+      
+        // 【追加】これまでの足跡データをLocalStorageにテキストとして保存
+        const rawCoords = myNewTrackDots.map(d => {
+          const ll = d.getLatLng();
+          return [ll.lat, ll.lng];
+        });
+        localStorage.setItem("saved_breadcrumbs", JSON.stringify(rawCoords));
       }
+
+
+
+      
     },
     (err) => {
       console.error("位置の追跡に失敗しました:", err.message);
@@ -760,6 +770,33 @@ function resetStamps() {
 // 初期起動時の実行
 updateMapMarkers();
 showStamps();
+
+// === 🆕 ⑦ 画面読み込み時にLocalStorageから足跡（てんてん）を復活させる ===
+function restoreBreadcrumbs() {
+  const savedData = localStorage.getItem("saved_breadcrumbs");
+  if (savedData) {
+    try {
+      // 保存されていた緯度経度のリストを読み込む
+      const coordsList = JSON.parse(savedData);
+      
+      coordsList.forEach(coord => {
+        // 過去の足跡ドットを地図上に再現
+        const dot = L.circleMarker(coord, {
+          radius: 4, color: "red", fillColor: "red", fillOpacity: 0.6, stroke: false
+        }).addTo(map);
+        
+        // 配列（箱）にも戻しておく
+        myNewTrackDots.push(dot);
+      });
+    } catch (e) {
+      console.error("足跡データの復元に失敗しました", e);
+    }
+  }
+}
+
+// 起動時に足跡を復元する
+restoreBreadcrumbs();
+  
 </script>
 </body>
 </html>
