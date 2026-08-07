@@ -140,42 +140,46 @@ const spots = [
 // === 地図表示 ===
 const map = L.map("map").setView([36.3824, 140.2674], 15);
 
-// 1. 通常の地図（OpenStreetMap）レイヤーを作成
+// 1. 通常地図（OpenStreetMap）レイヤー
 const baseMap = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution: "© OpenStreetMap",
-  opacity: 0.4 // イラストマップを重ねるため、少し薄く設定しています
+  attribution: "© OpenStreetMap"
+  // ※背景として独立させるため、opacity（透明度）の設定は削除して100%ではっきり表示させます
 });
 
-// 2. 航空写真（国土地理院）レイヤーを作成
+// 2. 航空写真（国土地理院）レイヤー
 const satelliteMap = L.tileLayer("https://gsi.go.jp{z}/{x}/{y}.jpg", {
-  attribution: "© 国土地理院",
-  opacity: 0.4 // イラストマップを重ねるため、通常地図と同じ薄さに設定
+  attribution: "© 国土地理院"
 });
 
-// 最初は通常の地図を表示しておく
-baseMap.addTo(map);
+// 3. オリジナルマップ（meijiline.png）を「背景グループ」として作成
+// ※Leafletの仕様上、画像を背景にする場合は「空のレイヤー」を作ってそこに画像を載せます
+const originalMapGroup = L.layerGroup();
 
-// 3. 画面右上に「切り替えボタン」を追加
-const baseLayers = {
-  "通常地図": baseMap,
-  "航空写真": satelliteMap
-};
-L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
-
-
-// === オリジナルマップの重ね合わせ（変更なし） ===
 const imageBounds = [
   [36.376273, 140.246029], //左下
   [36.396837, 140.278823]  //右上
 ];
 const imageUrl = "meijiline.png"; 
 
-const illustration = L.imageOverlay(imageUrl, imageBounds, {
-  opacity: 0.6,     
+L.imageOverlay(imageUrl, imageBounds, {
+  opacity: 1.0,     // 背景として使うので、透けさせずに100%ではっきり表示
   alt: "オリジナルマップ"
-}).addTo(map);
+}).addTo(originalMapGroup);
 
 
+// === 4. 最初は「オリジナルマップ」を画面に表示しておく ===
+originalMapGroup.addTo(map);
+
+
+// === 5. 右上の切り替えボタンに3つの選択肢を登録 ===
+const baseLayers = {
+  "オリジナル地図": originalMapGroup,
+  "元の地図": baseMap,
+  "航空写真": satelliteMap
+};
+
+// ラジオボタンでどれか1つだけが選ばれるようになります
+L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
 
 
 
