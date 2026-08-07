@@ -376,61 +376,37 @@ function resetStamps() {
 
 
 ////////////軌跡ここから
-// === 軌跡（ルート記録）機能の変数 ===
+// === 軌跡（ドット記録）機能の変数 ===
 let watchId = null;          // GPSの継続監視を管理するID
-let routePath = [];         // 歩いた緯度経度のリストを保存する箱
-let routeLine = null;       // 地図上に引く線のオブジェクト
+let trackDots = [];          // 地図上に打った「てんてん」のマークを保存する箱
+let lastDotTime = 0;         // 最後にドットを打った時刻（ミリ秒）
 
-// === 🏁 スタンプラリー開始（追跡スタート） ===
+// === 🏁 スタンプラリー開始 ===
 function startTracking() {
   if (!navigator.geolocation) {
     alert("お使いのブラウザは位置情報の追跡に対応していません");
     return;
   }
+  if (watchId !== null) return; 
 
-  if (watchId !== null) return; // 既に開始していれば何もしない
-
-  alert("🏁 記録を開始しました！歩くと地図に軌跡が描かれます。");
+  alert("🏁 記録を開始しました！30秒ごとに地図に足跡（てんてん）が刻まれます。");
   
-  // ボタンの有効・無効を切り替え
   document.getElementById("startBtn").disabled = true;
   document.getElementById("stopBtn").disabled = false;
 
-  // 軌跡データを初期化し、古い線があれば地図から消す
-  routePath = [];
-  if (routeLine) {
-    map.removeLayer(routeLine);
-  }
+  // リセット
+  trackDots = [];
+  lastDotTime = 0; 
 
-  // watchPositionを使って、移動を自動で検知し続ける
   watchId = navigator.geolocation.watchPosition(
     (pos) => {
       const uLat = pos.coords.latitude;
       const uLng = pos.coords.longitude;
 
-      // 最新の現在地を記録
       currentLat = uLat;
       currentLng = uLng;
 
-      // 1つ前の位置と同じでなければ、軌跡リスト（配列）に緯度経度を追加
-      const lastPoint = routePath[routePath.length - 1];
-      if (!lastPoint || lastPoint[0] !== uLat || lastPoint[1] !== uLng) {
-        routePath.push([uLat, uLng]);
-      }
-
-      // 地図上に引く線の設定（すでに線があれば更新、なければ新しく作る）
-      if (routeLine) {
-        routeLine.setLatLngs(routePath);
-      } else {
-        routeLine = L.polyline(routePath, {
-          color: "red",       // 線の色（赤）
-          weight: 5,         // 線の太さ
-          opacity: 0.8,       // 線の透明度
-          dashArray: "5, 10"  // 点線にしたい場合は指定（実線ならこの行を消す）
-        }).addTo(map);
-      }
-
-      // 現在地マーク（青丸）も自動で移動させる
+      // 現在地マーク（青丸）を自動移動
       if (currentLocationMarker) {
         currentLocationMarker.setLatLng([uLat, uLng]);
       } else {
@@ -438,15 +414,33 @@ function startTracking() {
           radius: 8, color: "blue", fillColor: "blue", fillOpacity: 0.8
         }).addTo(map);
       }
+
+      // 【時間判定】現在の時刻（ミリ秒）を取得
+      const now = Date.now();
+
+      // 初回、または前回のドット作成から30000ミリ秒（30秒）以上経過しているか判定
+      if (lastDotTime === 0 || (now - lastDotTime) >= 30000) {
+        
+        // 小さな赤いドットを地図上に配置（線は引かない）
+        const dot = L.circleMarker([uLat, uLng], {
+          radius: 4,          // 点の大きさ
+          color: "red",       // 点の色
+          fillColor: "red",
+          fillOpacity: 0.6,
+          stroke: false       // 枠線を消して滑らかな丸にする
+        }).addTo(map);
+
+        // あとで一括消去できるように箱に保存
+        trackDots.push(dot);
+
+        // 最後にドットを打った時間を今に更新
+        lastDotTime = now;
+      }
     },
     (err) => {
       console.error("位置の追跡に失敗しました:", err.message);
     },
-    {
-      enableHighAccuracy: true, // 高精度GPSを使用
-      timeout: 10000,
-      maximumAge: 0
-    }
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
   );
 }
 
@@ -454,26 +448,35 @@ function startTracking() {
 function stopTracking() {
   if (watchId === null) return;
 
-  // GPSの監視をストップする
   navigator.geolocation.clearWatch(watchId);
   watchId = null;
 
-  alert("🎯 ゴール！お疲れ様でした。歩いたルートが地図に残ります。");
+  alert("🎯 ゴール！お疲れ様でした。歩いた足跡が地図に残ります。");
 
-  // ボタンの状態を元に戻す
   document.getElementById("startBtn").disabled = false;
   document.getElementById("stopBtn").disabled = true;
 }
-////////////軌跡ここまで
 
 
+// ※【注意】以前のリセット機能（resetStamps）に、打った点（てんてん）も一緒に消す処理を追加しておきます
+function resetStamps() {
+  if (confirm("スタンプと歩いた足跡をすべて消しますか？")) {
+    spots.forEach(s => {
+      localStorage.removeItem("stamp_" + s.id);
+    });
+    // 画面上のてんてんをすべて消去
+    trackDots.forEach(dot => map.removeLayer(dot));
+    trackDots = [];
+    
+    updateMapMarkers(); 
+    showStamps();       
+    document.getElementById("message").textContent = "";
+  }
+}
 
-
-  
 // 初期起動時の実行
 updateMapMarkers();
 showStamps();
 </script>
-
 </body>
 </html>
