@@ -32,6 +32,7 @@
       font-family: sans-serif;
       font-size: 13px;
       color: #333;
+      margin-top: 10px !important; /* 👈 ここにこの1行を付け足してください */
     }
     
     /* 最小化（閉じている時）の見た目（34px四方の正方形） */
@@ -321,6 +322,41 @@ function handleLayerRadio(type) {
   if (type === 'base') baseMap.addTo(map);
   if (type === 'satellite') satelliteMap.addTo(map);
 }
+
+// === 🆕 ④ 自作「足跡の記録四角パネル」を追加 ===
+const CustomTrackControl = L.Control.extend({
+  options: { position: 'topright' }, // 「🗺」の下に自動で並びます
+  onAdd: function () {
+    const container = L.DomUtil.create('div');
+    container.innerHTML = `
+      <div class="control-icon" id="track-icon-status">👣</div>
+      <div class="control-content">
+        <h4>足跡の記録</h4>
+        <label><input type="radio" name="track_opt" id="opt_start" onclick="handleTrackRadio('start')">🟢 足跡スタート</label>
+        <label><input type="radio" name="track_opt" id="opt_pause" onclick="handleTrackRadio('pause')">🟡 足跡ひとやすみ</label>
+        <label><input type="radio" name="track_opt" id="opt_stop" checked onclick="handleTrackRadio('stop')">⚪ 足跡リセット</label>
+      </div>
+    `;
+    setupControlToggle(container); // 先ほど作った開閉の仕組みをそのまま使い回します
+    return container;
+  }
+});
+map.addControl(new CustomTrackControl());
+
+// 🆕 ⑤ ボタンが押されたときに「とりあえずメッセージを出す」だけの仮の関数
+function handleTrackRadio(mode) {
+  const messageEl = document.getElementById('message');
+  
+  if (mode === 'start') {
+    if (messageEl) messageEl.textContent = "🟢 【テスト】スタートが押されました（まだGPSは動きません）";
+  } else if (mode === 'pause') {
+    if (messageEl) messageEl.textContent = "🟡 【テスト】ひとやすみが押されました";
+  } else if (mode === 'stop') {
+    if (messageEl) messageEl.textContent = "⚪ 【テスト】リセットが押されました";
+  }
+}
+
+  
   
 // マーカーの見た目を更新・初期配置する関数（吹き出し内に「行きたいボタン」を追加）
 function updateMapMarkers() {
