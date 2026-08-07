@@ -483,33 +483,39 @@ function pauseNewTracking() {
   
   
 // マーカーの見た目を更新・初期配置する関数（吹き出し内に「行きたいボタン」を追加）
+// マーカーの見た目を更新・初期配置する関数（3種類の手書きイラスト切り替え版）
 function updateMapMarkers() {
   spots.forEach(s => {
     const got = localStorage.getItem("stamp_" + s.id);      // 獲得済（緑）
     const wish = localStorage.getItem("wish_" + s.id);      // 行きたい（黄）
 
-    // 1. 状態に応じたピンのクラスを決定
-    let pinClass = "pin-red"; // デフォルトは赤
+    // --- 1. 状態に応じて、表示する手書きイラストのファイル名を決定 ---
+    let myIconUrl = "pin_red.png"; // ① まだ行っていない場所のイラスト名
     if (got) {
-      pinClass = "pin-green";
+      myIconUrl = "pin_green.png"; // ② スタンプ獲得済みのイラスト名
     } else if (wish) {
-      pinClass = "pin-yellow";
+      myIconUrl = "pin_yellow.png"; // ③ 行きたい場所のイラスト名
     }
 
-    // 2. 吹き出し（ポップアップ）の中身を作成
+    // --- 2. 手書きピンのサイズと位置の設定（文字消えしない安全な記述です） ---
+    const myHandmadeIcon = L.icon({
+      iconUrl: myIconUrl,                     // 上で選んだイラスト画像を読み込む
+      iconSize: L.point(30, 30),              // イラストの表示サイズ（横30px, 縦30px）★お好みで変更してね
+      iconAnchor: L.point(15, 30),            // イラストの「一番下の尖った部分」が正確に場所を指す位置（中心, 下端）
+      popupAnchor: L.point(0, -32)            // 吹き出しがイラストのすぐ上から出るように調整
+    });
+
+    // --- 3. 吹き出し（ポップアップ）の中身を作成 ---
     let popupContent = `<div style="text-align: center; font-family: sans-serif; min-width: 160px;">`;
     if (got) {
-      // 【獲得済】
       popupContent += `
         <img src="https://icons8.com" alt="スタンプ" style="width: 50px; height: 50px; object-fit: contain; margin-bottom: 5px;">
         <br><b style="font-size: 14px;">${s.name}</b><br>
         <span style="font-size: 12px; color: #666;">${s.info}</span><br>
         <span style="color: green; font-weight: bold; font-size: 13px; display: inline-block; margin-top: 5px;">✅ 獲得済</span>`;
     } else {
-      // 【未獲得】ボタンをコンパクトに横並び
-      // 黄色状態なら「📍外す」、赤色状態なら「📍行きたい」に文字が変わります
       const wishButtonText = wish ? "📍外す" : "📍行きたい";
-      const wishButtonColor = wish ? "#fff0f0" : "#fffde6"; // 状態に合わせてボタンの背景色も変化
+      const wishButtonColor = wish ? "#fff0f0" : "#fffde6";
 
       popupContent += `
         <img src="https://icons8.com" alt="スタンプ" style="width: 50px; height: 50px; object-fit: contain; margin-bottom: 5px; opacity: 0.2; filter: grayscale(100%);">
@@ -527,40 +533,18 @@ function updateMapMarkers() {
     }
     popupContent += `</div>`;
 
-    // 3. マーカーの配置または更新
+    // --- 4. マーカーの配置またはイラスト・吹き出しの更新 ---
     if (markers[s.id]) {
-      // すべての色クラスを一度外してから、正しいクラスを付け直す
-      L.DomUtil.removeClass(markers[s.id]._icon, "pin-red");
-      L.DomUtil.removeClass(markers[s.id]._icon, "pin-green");
-      L.DomUtil.removeClass(markers[s.id]._icon, "pin-yellow");
-      L.DomUtil.addClass(markers[s.id]._icon, pinClass);
-      
-      // ポップアップが開いたままでも中身が切り替わるように更新
+      // 既にピンがある場合は、イラスト画像（Icon）と吹き出しの中身を最新状態に更新
+      markers[s.id].setIcon(myHandmadeIcon);
       markers[s.id].setPopupContent(popupContent);
     } else {
-
-    
- const miniSvgIcon = L.divIcon({
-    className: 'custom-mini-pin',
-    html: `
-      <svg width="16" height="25" viewBox="0 0 24 38" fill="none" xmlns="http://w3.org">
-        <path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 38 12 38C12 38 24 21 24 12C24 5.37 18.63 0 12 0ZM12 16.5C9.51 16.5 7.5 14.49 7.5 12C7.5 9.51 9.51 7.5 12 7.5C14.49 7.5 16.5 9.51 16.5 12C16.5 14.49 14.49 16.5 12 16.5Z" fill="currentColor"/>
-      </svg>
-    `,
-    iconSize: L.point(16, 25),       // 横16px、縦25pxのミニサイズにカチッと固定！
-    iconAnchor: L.point(8, 25),      // ピンの尖った根元が正確にスポットを指す中心点
-    popupAnchor: L.point(0, -26)     // 吹き出しが出る位置
-  });
-
-  const marker = L.marker([s.lat, s.lng], { icon: miniSvgIcon }).addTo(map).bindPopup(popupContent);
-  L.DomUtil.addClass(marker._icon, pinClass);
-  markers[s.id] = marker;
-      
+      // 最初は新しく手書きピンを作る
+      const marker = L.marker([s.lat, s.lng], { icon: myHandmadeIcon }).addTo(map).bindPopup(popupContent);
+      markers[s.id] = marker;
     }
   });
 }
-
-
 
 
 // === 🆕 「行きたい」ボタンが押された時のオンオフ処理 ===
